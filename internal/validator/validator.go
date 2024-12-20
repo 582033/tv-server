@@ -41,7 +41,6 @@ func isValidURL(url string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	start := time.Now()
 	req, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
 	if err != nil {
 		return false
@@ -49,8 +48,12 @@ func isValidURL(url string) bool {
 
 	client := &http.Client{
 		Timeout: 3 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
 	}
 
+	start := time.Now()
 	resp, err := client.Do(req)
 	if err != nil {
 		return false
@@ -58,5 +61,5 @@ func isValidURL(url string) bool {
 	defer resp.Body.Close()
 
 	latency := time.Since(start).Milliseconds()
-	return resp.StatusCode == 200 && latency <= 1000
+	return (resp.StatusCode >= 200 && resp.StatusCode < 400) && latency <= 1000
 }

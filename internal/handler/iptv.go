@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sync"
 
 	"tv-server/internal/logic/m3u"
 	"tv-server/utils/cache"
@@ -12,7 +13,7 @@ import (
 )
 
 type ValidateRequest struct {
-	URL string `json:"url"`
+	URLs []string `json:"urls"`
 }
 
 type ValidateResponse struct {
@@ -31,22 +32,50 @@ func HandleValidate(c *gin.Context) {
 		return
 	}
 
-	// 获取内容
-	content, err := fetchContent(req.URL)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, ValidateResponse{
+	if len(req.URLs) == 0 {
+		c.JSON(http.StatusBadRequest, ValidateResponse{
 			Success: false,
-			Message: "Error fetching content: " + err.Error(),
+			Message: "No URLs provided",
 		})
 		return
 	}
 
-	// 解析并验证
-	entries := m3u.Parse(content)
-	validEntries := m3u.ValidateURLs(entries)
+	// 并发获取所有M3U内容
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	allEntries := make([]m3u.Entry, 0)
 
-	// 写入缓存文件
-	if err := m3u.WriteToFile(validEntries, cache.CacheFile); err != nil {
+	for _, url := range req.URLs {
+		wg.Add(1)
+		go func(url string) {
+			defer wg.Done()
+
+			content, err := fetchContent(url)
+			if err != nil {
+				return // 跳过错误的URL
+			}
+
+			entries := m3u.Parse(content)
+			validEntries := m3u.ValidateURLs(entries)
+
+			mu.Lock()
+			allEntries = append(allEntries, validEntries...)
+			mu.Unlock()
+		}(url)
+	}
+
+	wg.Wait()
+
+	if len(allEntries) == 0 {
+		c.JSON(http.StatusBadRequest, ValidateResponse{
+			Success: false,
+			Message: "No valid entries found",
+		})
+		return
+	}
+
+	// 写入合并后的缓存文件
+	if err := m3u.WriteToFile(allEntries, cache.CacheFile); err != nil {
 		c.JSON(http.StatusInternalServerError, ValidateResponse{
 			Success: false,
 			Message: "Error writing cache: " + err.Error(),
@@ -63,7 +92,7 @@ func HandleValidate(c *gin.Context) {
 // 返回缓存的M3U文件
 func HandleM3U(c *gin.Context) {
 	if _, err := os.Stat(cache.CacheFile); os.IsNotExist(err) {
-		c.String(http.StatusNotFound, "No M3U file available. Please validate a M3U URL first.")
+		c.String(http.StatusNotFound, "No M3U file available. Please validate M3U URLs first.")
 		return
 	}
 

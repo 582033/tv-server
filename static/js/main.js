@@ -1,3 +1,13 @@
+// 显示结果提示
+function showResult(type, message) {
+    const result = document.getElementById('result');
+    result.innerHTML = `
+        <div class="alert alert-${type === 'success' ? 'success' : 'danger'}" role="alert">
+            ${message}
+        </div>
+    `;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const urlInputs = document.getElementById('urlInputs');
     const addUrlBtn = document.getElementById('addUrlBtn');
@@ -72,12 +82,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         validateBtn.disabled = validUrls.length === 0;
         return validUrls;
-    }
-
-    // 显示结果
-    function showResult(message) {
-        const result = document.getElementById('result');
-        result.innerHTML = message;
     }
 
     // 复制URL
@@ -191,7 +195,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('/api/validate', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 urls: validUrls,
@@ -202,43 +206,29 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const currentHost = window.location.origin;
-                const m3uUrl = `${currentHost}/iptv.m3u`;
-                showResult(`
-                    <div class="alert alert-success" role="alert">
-                        <h4 class="alert-heading">验证成功！</h4>
-                        <p>已成功处理所有链接，您可以通过以下地址访问合并后的 M3U 文件：</p>
-                        <hr>
-                        <div class="d-flex align-items-center justify-content-center gap-2">
-                            <a href="${m3uUrl}" class="alert-link">${m3uUrl}</a>
-                            <button class="btn btn-sm btn-outline-success" onclick="copyUrl('${m3uUrl}')" title="复制链接">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard" viewBox="0 0 16 16">
-                                    <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
-                                    <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                `);
+                const message = `${data.message}
+原始链接：${data.stats.total} 个
+验证通过：${data.stats.unique} 个
+有效链接：${data.stats.valid} 个（去重后）
+
+您可以通过以下地址访问合并后的 M3U 文件：
+<a href="${data.m3uLink}" target="_blank">${data.m3uLink}</a>`;
+
+                showResult('success', message.replace(/\n/g, '<br>'));
             } else {
-                throw new Error(data.message);
+                showResult('error', data.message);
             }
+            validateBtn.disabled = false;
+            validateBtnText.classList.remove('d-none');
+            validateSpinner.classList.add('d-none');
+            progressArea.classList.add('d-none');
         })
         .catch(error => {
-            showResult(`
-                <div class="alert alert-danger" role="alert">
-                    <h4 class="alert-heading">处理失败</h4>
-                    <p>${error.message || '发生未知错误，请稍后重试'}</p>
-                </div>
-            `);
-        })
-        .finally(() => {
+            showResult('error', '验证请求失败，请稍后重试');
             validateBtn.disabled = false;
-            validateBtnText.textContent = '验证';
+            validateBtnText.classList.remove('d-none');
             validateSpinner.classList.add('d-none');
-            setTimeout(() => {
-                progressArea.classList.add('d-none');
-            }, 1000);
+            progressArea.classList.add('d-none');
         });
     }
 

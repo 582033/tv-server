@@ -46,12 +46,3 @@ func registerAPI(r *gin.Engine) {
 	r.POST(URLValidate, handler.HandleValidate)
 	r.POST(URLUpload, handler.HandleUpload)
 }
-
-// 可以继续添加其他路由组
-// 例如：
-// func registerAdmin(r *gin.Engine) {
-//     admin := r.Group("/admin")
-//     {
-//         admin.GET("/", handler.HandleAdminHome)
-//     }
-// }

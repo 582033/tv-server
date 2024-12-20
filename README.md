@@ -13,3 +13,6 @@
 ```
 docker run -d -p 8080:8080 tv-server
 ```
+
+## todo
+* 增加滑动块支持调整本地延迟值

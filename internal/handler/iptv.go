@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 
 	"tv-server/internal/logic/m3u"
@@ -14,6 +16,7 @@ import (
 
 type ValidateRequest struct {
 	URLs []string `json:"urls"`
+	URL  string   `json:"url"`
 }
 
 type ValidateResponse struct {
@@ -32,7 +35,18 @@ func HandleValidate(c *gin.Context) {
 		return
 	}
 
-	if len(req.URLs) == 0 {
+	// 处理URLs
+	var urls []string
+	if req.URL != "" {
+		// 如果提供了单个URL，将其添加到URLs中
+		urls = append(urls, req.URL)
+	}
+	if len(req.URLs) > 0 {
+		// 如果提供了多个URL，将它们添加到URLs中
+		urls = append(urls, req.URLs...)
+	}
+
+	if len(urls) == 0 {
 		c.JSON(http.StatusBadRequest, ValidateResponse{
 			Success: false,
 			Message: "No URLs provided",
@@ -44,15 +58,19 @@ func HandleValidate(c *gin.Context) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	allEntries := make([]m3u.Entry, 0)
+	errorURLs := make([]string, 0)
 
-	for _, url := range req.URLs {
+	for _, url := range urls {
 		wg.Add(1)
 		go func(url string) {
 			defer wg.Done()
 
 			content, err := fetchContent(url)
 			if err != nil {
-				return // 跳过错误的URL
+				mu.Lock()
+				errorURLs = append(errorURLs, url)
+				mu.Unlock()
+				return
 			}
 
 			entries := m3u.Parse(content)
@@ -66,10 +84,15 @@ func HandleValidate(c *gin.Context) {
 
 	wg.Wait()
 
+	// 检查是否所有URL都失败了
 	if len(allEntries) == 0 {
+		message := "No valid entries found"
+		if len(errorURLs) > 0 {
+			message = "Failed to process URLs: " + strings.Join(errorURLs, ", ")
+		}
 		c.JSON(http.StatusBadRequest, ValidateResponse{
 			Success: false,
-			Message: "No valid entries found",
+			Message: message,
 		})
 		return
 	}
@@ -83,10 +106,18 @@ func HandleValidate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, ValidateResponse{
+	// 返回成功响应
+	response := ValidateResponse{
 		Success: true,
 		Message: "Validation successful",
-	})
+	}
+
+	// 如果有部分URL失败，在消息中提示
+	if len(errorURLs) > 0 {
+		response.Message += fmt.Sprintf(" (Failed URLs: %s)", strings.Join(errorURLs, ", "))
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // 返回缓存的M3U文件

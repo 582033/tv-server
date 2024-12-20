@@ -1,16 +1,14 @@
-package validator
+package m3u
 
 import (
 	"context"
 	"net/http"
 	"sync"
 	"time"
-
-	"tv-server/internal/model"
 )
 
-func ValidateURLs(entries []model.M3UEntry) []model.M3UEntry {
-	var validEntries []model.M3UEntry
+func ValidateURLs(entries []Entry) []Entry {
+	var validEntries []Entry
 	var mutex sync.Mutex
 	var wg sync.WaitGroup
 
@@ -23,7 +21,7 @@ func ValidateURLs(entries []model.M3UEntry) []model.M3UEntry {
 		}
 
 		wg.Add(1)
-		go func(entry model.M3UEntry) {
+		go func(entry Entry) {
 			defer wg.Done()
 			if isValidURL(entry.URL) {
 				mutex.Lock()

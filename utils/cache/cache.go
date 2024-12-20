@@ -39,19 +39,10 @@ func Cleanup() {
 			continue
 		}
 
+		// 删除超过24小时的文件
 		if time.Since(info.ModTime()) > MaxCacheAge {
 			if err := os.Remove(filePath); err != nil {
 				log.Printf("Failed to remove old cache file %s: %v", filePath, err)
-			}
-		}
-	}
-
-	// 如果文件数量超过限制，删除最旧的文件
-	if len(files) > MaxCacheFiles {
-		for i := MaxCacheFiles; i < len(files); i++ {
-			filePath := filepath.Join(CacheDir, files[i].Name())
-			if err := os.Remove(filePath); err != nil {
-				log.Printf("Failed to remove excess cache file %s: %v", filePath, err)
 			}
 		}
 	}

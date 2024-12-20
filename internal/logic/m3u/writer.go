@@ -1,14 +1,12 @@
-package writer
+package m3u
 
 import (
 	"bufio"
 	"fmt"
 	"os"
-
-	"tv-server/internal/model"
 )
 
-func WriteM3U(entries []model.M3UEntry, filename string) error {
+func WriteToFile(entries []Entry, filename string) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return err

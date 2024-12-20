@@ -2,61 +2,73 @@ package handler
 
 import (
 	"io"
-	"log"
 	"net/http"
 	"os"
 
-	"tv-server/internal/cache"
-	"tv-server/internal/parser"
-	"tv-server/internal/validator"
-	"tv-server/internal/writer"
+	"tv-server/internal/logic/m3u"
+	"tv-server/utils/cache"
 
 	"github.com/gin-gonic/gin"
 )
 
-func HandleIPTV(c *gin.Context) {
-	cache.CacheMutex.Lock()
-	defer cache.CacheMutex.Unlock()
+type ValidateRequest struct {
+	URL string `json:"url"`
+}
 
-	m3uURL := c.Query("url")
-	if m3uURL == "" {
-		c.String(http.StatusBadRequest, "Missing m3u url parameter")
+type ValidateResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// 处理验证请求
+func HandleValidate(c *gin.Context) {
+	var req ValidateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ValidateResponse{
+			Success: false,
+			Message: "Invalid request",
+		})
 		return
 	}
 
-	log.Printf("Processing M3U URL: %s", m3uURL)
-
-	// 清理缓存
-	cache.Cleanup()
-
 	// 获取内容
-	content, err := fetchContent(m3uURL)
+	content, err := fetchContent(req.URL)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Error fetching content: %v", err)
+		c.JSON(http.StatusInternalServerError, ValidateResponse{
+			Success: false,
+			Message: "Error fetching content: " + err.Error(),
+		})
 		return
 	}
 
 	// 解析并验证
-	entries := parser.ParseM3U(content)
-	validEntries := validator.ValidateURLs(entries)
+	entries := m3u.Parse(content)
+	validEntries := m3u.ValidateURLs(entries)
 
 	// 写入缓存文件
-	if err := writer.WriteM3U(validEntries, cache.CacheFile); err != nil {
-		c.String(http.StatusInternalServerError, "Error writing cache: %v", err)
+	if err := m3u.WriteToFile(validEntries, cache.CacheFile); err != nil {
+		c.JSON(http.StatusInternalServerError, ValidateResponse{
+			Success: false,
+			Message: "Error writing cache: " + err.Error(),
+		})
 		return
 	}
 
-	// 检查缓存文件是否存在
-	if _, err := os.Stat(cache.CacheFile); err != nil {
-		c.String(http.StatusInternalServerError, "Cache file not found")
+	c.JSON(http.StatusOK, ValidateResponse{
+		Success: true,
+		Message: "Validation successful",
+	})
+}
+
+// 返回缓存的M3U文件
+func HandleM3U(c *gin.Context) {
+	if _, err := os.Stat(cache.CacheFile); os.IsNotExist(err) {
+		c.String(http.StatusNotFound, "No M3U file available. Please validate a M3U URL first.")
 		return
 	}
 
-	// 设置header
 	c.Header("Content-Type", "application/x-mpegurl")
 	c.Header("Content-Disposition", "inline")
-
-	// 从缓存目录读取并返回文件
 	c.File(cache.CacheFile)
 }
 

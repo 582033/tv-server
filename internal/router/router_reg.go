@@ -36,13 +36,15 @@ func NewRouter() *gin.Engine {
 
 // 注册页面路由
 func registerPages(r *gin.Engine) {
-	r.GET("/", handler.HandleHome)
+	r.GET(URLHome, handler.HandleHome)
+	r.GET(URLWelcome, handler.HandleHome)
 }
 
 // 注册 API 路由
 func registerAPI(r *gin.Engine) {
-	r.POST("/api/validate", handler.HandleValidate)
-	r.GET("/iptv.m3u", handler.HandleM3U)
+	r.GET(URLIPTV, handler.HandleM3U)
+	r.POST(URLValidate, handler.HandleValidate)
+	r.POST(URLUpload, handler.HandleUpload)
 }
 
 // 可以继续添加其他路由组

@@ -19,9 +19,19 @@
                 <div class="row justify-content-center mb-4">
                     <div class="col-md-8">
                         <div id="urlInputs" class="mb-3">
-                            <!-- 初始只有一个输入框 -->
+                            <div class="url-input-group mb-2">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" placeholder="请输入 M3U 链接">
+                                    <button class="btn btn-outline-danger btn-remove" title="删除">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-x-lg" viewBox="0 0 16 16">
+                                            <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="invalid-feedback">请输入有效的 M3U 链接</div>
+                            </div>
                         </div>
-                        
+
                         <div class="d-grid gap-2">
                             <button id="addUrlBtn" class="btn btn-outline-primary btn-sm mb-3">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-lg" viewBox="0 0 16 16">
@@ -29,6 +39,32 @@
                                 </svg>
                                 添加链接
                             </button>
+
+                            <!-- 修改上传按钮部分 -->
+                            <div class="mb-3">
+                                <label for="fileUpload" class="btn btn-outline-secondary btn-sm w-100" id="uploadLabel">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-text" viewBox="0 0 16 16">
+                                        <path d="M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5z"/>
+                                        <path d="M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5L9.5 0zm0 1v2A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5z"/>
+                                    </svg>
+                                    <span id="uploadText">上传本地文件</span>
+                                    <div class="progress d-none" id="uploadProgress" style="height: 4px;">
+                                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                </label>
+                                <input type="file" id="fileUpload" accept=".m3u,.m3u8" class="d-none">
+                            </div>
+
+                            <!-- 延迟滑块 -->
+                            <div class="mb-3">
+                                <label for="latencyRange" class="form-label d-flex justify-content-between">
+                                    <span>延迟容忍度: <span id="latencyValue">1000</span>ms</span>
+                                    <span class="text-muted small">（越低要求越严格）</span>
+                                </label>
+                                <input type="range" class="form-range" id="latencyRange" 
+                                       min="100" max="5000" step="100" value="1000">
+                            </div>
+                            
                             <button id="validateBtn" class="btn btn-primary" disabled>
                                 <span id="validateBtnText">验证</span>
                                 <span id="validateSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
@@ -70,4 +106,4 @@
     <!-- 自定义脚本 -->
     <script src="/static/js/main.js"></script>
 </body>
-</html>
+</html> 

@@ -7,7 +7,9 @@ const (
 	URLWelcome = "/home"
 
 	// API 路由
-	URLIPTV = "/iptv.m3u"
+	URLIPTV     = "/iptv.m3u"
+	URLValidate = "/api/validate"
+	URLUpload   = "/api/upload"
 
 	// 其他路由分类可以在这里继续添加
 	// 例如：

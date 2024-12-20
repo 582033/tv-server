@@ -1,28 +1,46 @@
 package handler
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"strings"
+	"path/filepath"
 	"sync"
+	"time"
 
 	"tv-server/internal/logic/m3u"
 	"tv-server/utils/cache"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type ValidateRequest struct {
-	URLs []string `json:"urls"`
-	URL  string   `json:"url"`
+	URLs       []string `json:"urls"`
+	MaxLatency int      `json:"maxLatency"`
+	Token      string   `json:"token"`
 }
 
 type ValidateResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 }
+
+type UploadResponse struct {
+	Success  bool   `json:"success"`
+	Message  string `json:"message"`
+	Token    string `json:"token"`
+	FileName string `json:"fileName"`
+}
+
+var (
+	tempFiles = struct {
+		sync.RWMutex
+		files map[string]string
+	}{
+		files: make(map[string]string),
+	}
+)
 
 // 处理验证请求
 func HandleValidate(c *gin.Context) {
@@ -35,89 +53,51 @@ func HandleValidate(c *gin.Context) {
 		return
 	}
 
-	// 处理URLs
-	var urls []string
-	if req.URL != "" {
-		// 如果提供了单个URL，将其添加到URLs中
-		urls = append(urls, req.URL)
-	}
-	if len(req.URLs) > 0 {
-		// 如果提供了多个URL，将它们添加到URLs中
-		urls = append(urls, req.URLs...)
-	}
+	var allEntries []m3u.Entry
 
-	if len(urls) == 0 {
-		c.JSON(http.StatusBadRequest, ValidateResponse{
-			Success: false,
-			Message: "No URLs provided",
-		})
-		return
-	}
+	// 处理上传的文件
+	if req.Token != "" {
+		tempFiles.RLock()
+		tempFile, exists := tempFiles.files[req.Token]
+		tempFiles.RUnlock()
 
-	// 并发获取所有M3U内容
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	allEntries := make([]m3u.Entry, 0)
-	errorURLs := make([]string, 0)
-
-	for _, url := range urls {
-		wg.Add(1)
-		go func(url string) {
-			defer wg.Done()
-
-			content, err := fetchContent(url)
-			if err != nil {
-				mu.Lock()
-				errorURLs = append(errorURLs, url)
-				mu.Unlock()
-				return
+		if exists {
+			// 读取临时文件内容
+			content, err := os.ReadFile(tempFile)
+			if err == nil {
+				entries := m3u.Parse(string(content))
+				allEntries = append(allEntries, entries...)
 			}
 
-			entries := m3u.Parse(content)
-			validEntries := m3u.ValidateURLs(entries)
-
-			mu.Lock()
-			allEntries = append(allEntries, validEntries...)
-			mu.Unlock()
-		}(url)
-	}
-
-	wg.Wait()
-
-	// 检查是否所有URL都失败了
-	if len(allEntries) == 0 {
-		message := "No valid entries found"
-		if len(errorURLs) > 0 {
-			message = "Failed to process URLs: " + strings.Join(errorURLs, ", ")
+			// 处理完后删除临时文件
+			tempFiles.Lock()
+			delete(tempFiles.files, req.Token)
+			tempFiles.Unlock()
+			os.Remove(tempFile)
 		}
-		c.JSON(http.StatusBadRequest, ValidateResponse{
-			Success: false,
-			Message: message,
-		})
-		return
 	}
 
-	// 写入合并后的缓存文件
-	if err := m3u.WriteToFile(allEntries, cache.CacheFile); err != nil {
+	// 处理URL列表
+	for _, url := range req.URLs {
+		allEntries = append(allEntries, m3u.Entry{URL: url})
+	}
+
+	// 验证所有链接
+	validEntries := m3u.ValidateURLsWithLatency(allEntries, req.MaxLatency)
+
+	// 更新缓存文件
+	if err := m3u.WriteToFile(validEntries, cache.CacheFile); err != nil {
 		c.JSON(http.StatusInternalServerError, ValidateResponse{
 			Success: false,
-			Message: "Error writing cache: " + err.Error(),
+			Message: "Error writing cache",
 		})
 		return
 	}
 
-	// 返回成功响应
-	response := ValidateResponse{
+	c.JSON(http.StatusOK, ValidateResponse{
 		Success: true,
 		Message: "Validation successful",
-	}
-
-	// 如果有部分URL失败，在消息中提示
-	if len(errorURLs) > 0 {
-		response.Message += fmt.Sprintf(" (Failed URLs: %s)", strings.Join(errorURLs, ", "))
-	}
-
-	c.JSON(http.StatusOK, response)
+	})
 }
 
 // 返回缓存的M3U文件
@@ -145,4 +125,69 @@ func fetchContent(url string) (string, error) {
 	}
 
 	return string(content), nil
+}
+
+// HandleUpload 处理文件上传
+func HandleUpload(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, UploadResponse{
+			Success: false,
+			Message: "无效的文件上传",
+		})
+		return
+	}
+
+	// 创建临时文件
+	tempFile, err := os.CreateTemp("", "m3u-*"+filepath.Ext(file.Filename))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, UploadResponse{
+			Success: false,
+			Message: "创建临时文件失败",
+		})
+		return
+	}
+
+	// 保存上传的文件
+	if err := c.SaveUploadedFile(file, tempFile.Name()); err != nil {
+		os.Remove(tempFile.Name())
+		c.JSON(http.StatusInternalServerError, UploadResponse{
+			Success: false,
+			Message: "保存文件失败",
+		})
+		return
+	}
+
+	// 生成随机token
+	token := uuid.New().String()
+
+	// 保存临时文件信息
+	tempFiles.Lock()
+	tempFiles.files[token] = tempFile.Name()
+	tempFiles.Unlock()
+
+	// 设置定时清理（比如1小时后）
+	go func() {
+		time.Sleep(1 * time.Hour)
+		tempFiles.Lock()
+		if path, exists := tempFiles.files[token]; exists {
+			delete(tempFiles.files, token)
+			os.Remove(path)
+		}
+		tempFiles.Unlock()
+	}()
+
+	c.JSON(http.StatusOK, UploadResponse{
+		Success:  true,
+		Message:  "文件上传成功",
+		Token:    token,
+		FileName: file.Filename,
+	})
+}
+
+// 添加新的路由处理函数
+func RegisterRoutes(r *gin.Engine) {
+	r.GET("/iptv.m3u", HandleM3U)
+	r.POST("/api/validate", HandleValidate)
+	r.POST("/api/upload", HandleUpload) // 添加上传路由
 }

@@ -1,20 +1,50 @@
-## 使用方法
+# 构建阶段
+FROM golang:1.21-alpine AS builder
 
-1. 访问 Web 界面：`http://localhost:8080`
-2. 在输入框中输入 M3U 播放列表链接
-3. 点击"验证"按钮
-4. 等待验证完成
-5. 使用生成的 M3U 文件链接
+# 设置工作目录
+WORKDIR /app
 
-## 配置说明
+# 安装构建依赖
+RUN apk add --no-cache gcc musl-dev
 
-缓存配置（在 `utils/cache/cache.go` 中）：
-- 最大缓存文件数：10
-- 缓存过期时间：24小时
-- 缓存目录：系统临时目录下的 `tv-server` 文件夹
+# 复制 go.mod 和 go.sum
+COPY go.mod go.sum ./
 
-链接验证配置：
-- 最大延迟：1000ms
-- 请求超时：3秒
+# 下载依赖
+RUN go mod download
 
-## 开发 
+# 复制源代码
+COPY . .
+
+# 构建应用
+RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/web
+
+# 运行阶段
+FROM alpine:latest
+
+# 安装 ca-certificates，用于 HTTPS 请求
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /app
+
+# 创建缓存目录
+RUN mkdir -p /app/cache
+
+# 从构建阶段复制二进制文件
+COPY --from=builder /app/server .
+# 复制静态文件
+COPY --from=builder /app/static ./static
+
+# 设置环境变量
+ENV GIN_MODE=release
+
+# 暴露端口
+EXPOSE 8080
+
+# 设置用户
+RUN adduser -D appuser
+RUN chown -R appuser:appuser /app
+USER appuser
+
+# 运行应用
+CMD ["./server"]

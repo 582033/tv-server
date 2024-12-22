@@ -33,6 +33,11 @@ func Cleanup() {
 
 	// 删除过期文件
 	for _, file := range files {
+		// 跳过 validated.m3u 文件
+		if file.Name() == filepath.Base(CacheFile) {
+			continue
+		}
+
 		filePath := filepath.Join(CacheDir, file.Name())
 		info, err := file.Info()
 		if err != nil {
@@ -43,6 +48,8 @@ func Cleanup() {
 		if time.Since(info.ModTime()) > MaxCacheAge {
 			if err := os.Remove(filePath); err != nil {
 				log.Printf("Failed to remove old cache file %s: %v", filePath, err)
+			} else {
+				log.Printf("Removed expired cache file: %s", filePath)
 			}
 		}
 	}

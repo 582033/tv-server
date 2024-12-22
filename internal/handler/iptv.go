@@ -65,8 +65,29 @@ func HandleValidate(c *gin.Context) {
 
 	// 处理上传的文件和URLs
 	if req.Token != "" {
-		if entries, err := m3u.ParseFile(filepath.Join(cache.CacheDir, req.Token)); err == nil {
-			allEntries = append(allEntries, entries...)
+		filePath := filepath.Join(cache.CacheDir, req.Token)
+		fmt.Printf("处理上传的文件，Token: %s, 文件路径: %s\n", req.Token, filePath)
+		
+		// 确保缓存目录存在
+		if err := os.MkdirAll(cache.CacheDir, 0755); err != nil {
+			fmt.Printf("创建缓存目录失败: %v\n", err)
+			c.JSON(http.StatusInternalServerError, ValidateResponse{
+				Success: false,
+				Message: "系统错误：无法访问缓存目录",
+			})
+			return
+		}
+		
+		if _, err := os.Stat(filePath); err != nil {
+			fmt.Printf("文件不存在或无法访问: %v\n", err)
+		} else {
+			entries, err := m3u.ParseFile(filePath)
+			if err != nil {
+				fmt.Printf("解析文件失败: %v\n", err)
+			} else {
+				fmt.Printf("成功解析文件，获取到 %d 个条目\n", len(entries))
+				allEntries = append(allEntries, entries...)
+			}
 		}
 	}
 	for _, url := range req.URLs {
@@ -218,19 +239,25 @@ func HandleUpload(c *gin.Context) {
 		return
 	}
 
-	// 创建临时文件
-	tempFile, err := os.CreateTemp("", "m3u-*"+filepath.Ext(file.Filename))
-	if err != nil {
+	// 确保缓存目录存在
+	if err := os.MkdirAll(cache.CacheDir, 0755); err != nil {
+		fmt.Printf("创建缓存目录失败: %v\n", err)
 		c.JSON(http.StatusInternalServerError, UploadResponse{
 			Success: false,
-			Message: "创建临时文件失败",
+			Message: "创建缓存目录失败",
 		})
 		return
 	}
 
+	token := uuid.New().String()
+	tempFilePath := filepath.Join(cache.CacheDir, token)
+	
+	fmt.Printf("准备保存文件到: %s\n", tempFilePath)
+	
 	// 保存上传的文件
-	if err := c.SaveUploadedFile(file, tempFile.Name()); err != nil {
-		os.Remove(tempFile.Name())
+	if err := c.SaveUploadedFile(file, tempFilePath); err != nil {
+		fmt.Printf("保存文件失败: %v\n", err)
+		os.Remove(tempFilePath)
 		c.JSON(http.StatusInternalServerError, UploadResponse{
 			Success: false,
 			Message: "保存文件失败",
@@ -238,23 +265,14 @@ func HandleUpload(c *gin.Context) {
 		return
 	}
 
-	// 生成随机token
-	token := uuid.New().String()
-
-	// 保存临时文件信息
-	tempFiles.Lock()
-	tempFiles.files[token] = tempFile.Name()
-	tempFiles.Unlock()
+	fmt.Printf("文件已成功保存到: %s\n", tempFilePath)
 
 	// 设置定时清理（比如1小时后）
 	go func() {
 		time.Sleep(1 * time.Hour)
-		tempFiles.Lock()
-		if path, exists := tempFiles.files[token]; exists {
-			delete(tempFiles.files, token)
-			os.Remove(path)
+		if err := os.Remove(tempFilePath); err != nil {
+			fmt.Printf("清理文件失败: %v\n", err)
 		}
-		tempFiles.Unlock()
 	}()
 
 	c.JSON(http.StatusOK, UploadResponse{

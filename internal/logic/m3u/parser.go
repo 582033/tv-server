@@ -53,6 +53,9 @@ func ParseFile(filename string) ([]Entry, error) {
 		return nil, err
 	}
 
+	// 打印文件内容
+	fmt.Printf("文件内容:\n%s\n", string(content))
+
 	return Parse(string(content)), nil
 }
 

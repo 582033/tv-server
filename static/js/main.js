@@ -12,25 +12,39 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlInputs = document.getElementById('urlInputs');
     const addUrlBtn = document.getElementById('addUrlBtn');
     const validateBtn = document.getElementById('validateBtn');
-    const template = document.getElementById('urlInputTemplate');
+    const uploadLabel = document.getElementById('uploadLabel');
 
     // 添加链接输入框
     function addUrlInput(value = '') {
+        const template = document.getElementById('urlInputTemplate');
+        if (!template) {
+            console.error('找不到输入框模板');
+            return;
+        }
+
         const newInput = template.content.cloneNode(true);
-        urlInputs.appendChild(newInput);
-        
+        const inputGroup = newInput.querySelector('.url-input-group');
         const input = newInput.querySelector('input');
         const removeBtn = newInput.querySelector('.btn-remove');
 
-        input.addEventListener('input', validateInput);
-        removeBtn.addEventListener('click', () => removeUrlInput(newInput));
-
-        if (value) {
-            input.value = value;
+        if (input) {
+            input.addEventListener('input', validateInput);
+            if (value) {
+                input.value = value;
+            }
         }
 
+        if (removeBtn) {
+            // removeBtn.addEventListener('click', () => {
+            //     if (inputGroup) {
+            //         removeUrlInput(inputGroup);
+            //     }
+            // });
+        }
+
+        urlInputs.appendChild(newInput);
         validateAllInputs();
-        return newInput;
+        return inputGroup;
     }
 
     // 删除链接输入框
@@ -209,7 +223,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const message = `${data.message}
 原始链接：${data.stats.total} 个
 验证通过：${data.stats.unique} 个
-有效链接：${data.stats.valid} 个（去重后）
+有效链接：${data.stats.valid} 个
 
 您可以通过以下地址访问合并后的 M3U 文件：
 <a href="${data.m3uLink}" target="_blank">${data.m3uLink}</a>`;
@@ -219,6 +233,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 showResult('error', data.message);
             }
             validateBtn.disabled = false;
+            validateBtnText.textContent = '验证';  
             validateBtnText.classList.remove('d-none');
             validateSpinner.classList.add('d-none');
             progressArea.classList.add('d-none');
@@ -226,6 +241,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             showResult('error', '验证请求失败，请稍后重试');
             validateBtn.disabled = false;
+            validateBtnText.textContent = '验证';  
             validateBtnText.classList.remove('d-none');
             validateSpinner.classList.add('d-none');
             progressArea.classList.add('d-none');
@@ -233,8 +249,56 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 事件监听
-    addUrlBtn.addEventListener('click', addUrlInput);
+    addUrlBtn.addEventListener('click', () => addUrlInput());
     validateBtn.addEventListener('click', validateM3U);
+
+    // 使用事件委托处理所有删除按钮的点击
+    document.addEventListener('click', function(e) {
+        const deleteBtn = e.target.closest('.btn-remove');
+        if (deleteBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const inputGroup = deleteBtn.closest('.url-input-group');
+            if (inputGroup) {
+                removeUrlInput(inputGroup);
+            }
+        }
+
+        const uploadDeleteBtn = e.target.closest('.upload-remove-btn');
+        if (uploadDeleteBtn && uploadDeleteBtn.parentElement === uploadLabel) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const uploadText = document.getElementById('uploadText');
+            
+            // 恢复上传按钮状态
+            uploadText.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-cloud-upload me-1" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M4.406 1.342A5.53 5.53 0 0 1 8 0c2.69 0 4.923 2 5.166 4.579C14.758 4.804 16 6.137 16 7.773 16 9.569 14.502 11 12.687 11H10a.5.5 0 0 1 0-1h2.688C13.979 10 15 8.988 15 7.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 2.825 10.328 1 8 1a4.53 4.53 0 0 0-2.941 1.1c-.757.652-1.153 1.438-1.153 2.055v.448l-.445.049C2.064 4.805 1 5.952 1 7.318 1 8.785 2.23 10 3.781 10H6a.5.5 0 0 1 0 1H3.781C1.708 11 0 9.366 0 7.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383z"/>
+                    <path fill-rule="evenodd" d="M7.646 4.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 5.707V14.5a.5.5 0 0 1-1 0V5.707L5.354 7.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                </svg>
+                上传本地文件
+            `;
+            uploadLabel.className = 'btn btn-outline-secondary';
+            uploadLabel.removeAttribute('data-token');
+            
+            // 清除文件输入框的值
+            document.getElementById('fileUpload').value = '';
+            
+            // 禁用验证按钮
+            document.getElementById('validateBtn').disabled = true;
+            
+            // 清除结果显示
+            document.getElementById('result').innerHTML = '';
+            
+            // 隐藏进度条
+            document.getElementById('uploadProgress').classList.add('d-none');
+            
+            // 移除删除按钮
+            uploadDeleteBtn.remove();
+        }
+    });    
 
     // 初始化第一个输入框，但不显示删除按钮
     const firstInput = urlInputs.querySelector('.url-input-group');
@@ -287,14 +351,8 @@ function handleFileUpload(event) {
     const progressBar = uploadProgress.querySelector('.progress-bar');
     const validateBtn = document.getElementById('validateBtn');
     
-    // 更新按钮文本为处理状态
-    uploadText.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-text me-1" viewBox="0 0 16 16">
-            <path d="M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5z"/>
-            <path d="M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5L9.5 0zm0 1v2A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5z"/>
-        </svg>
-        正在处理: ${file.name}
-    `;
+    // 更新按钮文本，不显示文件图标
+    uploadText.innerHTML = `正在处理: ${file.name}`;
     uploadProgress.classList.remove('d-none');
     uploadLabel.classList.add('disabled');
 
@@ -305,51 +363,83 @@ function handleFileUpload(event) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // 更新上传按钮显示已上传的文件名
-            uploadText.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-check me-1" viewBox="0 0 16 16">
-                    <path d="M10.854 7.854a.5.5 0 0 0-.708-.708L7.5 9.793 6.354 8.646a.5.5 0 1 0-.708.708l1.5 1.5a.5.5 0 0 0 .708 0l3-3z"/>
-                    <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
-                </svg>
-                ${data.fileName}
-            `;
-            uploadLabel.classList.remove('btn-outline-secondary');
-            uploadLabel.classList.add('btn-outline-success');
+            // 更新按钮文本，不显示文件图标
+            uploadText.innerHTML = `已上传: ${file.name}`;
+            uploadLabel.classList.add('btn-outline-success', 'position-relative');
             uploadLabel.dataset.token = data.token;
+
+            // 创建一个包装容器
+            const wrapper = document.createElement('div');
+            wrapper.className = 'position-relative d-inline-block w-100';
+            uploadLabel.parentNode.insertBefore(wrapper, uploadLabel);
+            wrapper.appendChild(uploadLabel);
+
+            // 添加删除按钮
+            const deleteIcon = document.createElement('button');
+            deleteIcon.type = 'button';
+            deleteIcon.className = 'badge rounded-circle border-0 bg-danger position-absolute top-0 end-0';
+            deleteIcon.innerHTML = '×';
+            deleteIcon.style.cursor = 'pointer';
+            deleteIcon.style.transform = 'translate(50%, -50%)';
+            deleteIcon.setAttribute('aria-label', '删除');
+            
+            // 添加点击事件
+            deleteIcon.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // 恢复上传按钮状态，显示云上传图标
+                uploadText.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-cloud-upload me-1" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M4.406 1.342A5.53 5.53 0 0 1 8 0c2.69 0 4.923 2 5.166 4.579C14.758 4.804 16 6.137 16 7.773 16 9.569 14.502 11 12.687 11H10a.5.5 0 0 1 0-1h2.688C13.979 10 15 8.988 15 7.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 2.825 10.328 1 8 1a4.53 4.53 0 0 0-2.941 1.1c-.757.652-1.153 1.438-1.153 2.055v.448l-.445.049C2.064 4.805 1 5.952 1 7.318 1 8.785 2.23 10 3.781 10H6a.5.5 0 0 1 0 1H3.781C1.708 11 0 9.366 0 7.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383z"/>
+                        <path fill-rule="evenodd" d="M7.646 4.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 5.707V14.5a.5.5 0 0 1-1 0V5.707L5.354 7.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                    </svg>
+                    上传本地文件
+                `;
+                uploadLabel.className = 'btn btn-outline-secondary btn-sm w-100';
+                uploadLabel.removeAttribute('data-token');
+                
+                // 清除文件输入框的值
+                document.getElementById('fileUpload').value = '';
+                
+                // 禁用验证按钮
+                document.getElementById('validateBtn').disabled = true;
+                
+                // 清除结果显示
+                document.getElementById('result').innerHTML = '';
+                
+                // 隐藏进度条
+                document.getElementById('uploadProgress').classList.add('d-none');
+                
+                // 移除包装容器（包括删除按钮）
+                wrapper.parentNode.insertBefore(uploadLabel, wrapper);
+                wrapper.remove();
+            };
+            
+            wrapper.appendChild(deleteIcon);
             
             // 启用验证按钮
             validateBtn.disabled = false;
-            
-            showResult(`
-                <div class="alert alert-success" role="alert">
-                    <h4 class="alert-heading">文件上传成功！</h4>
-                    <p>文件已成功上传，可以点击验证按钮开始处理。</p>
-                </div>
-            `);
         } else {
-            throw new Error(data.message);
+            throw new Error(data.message || '上传失败');
         }
     })
     .catch(error => {
         // 恢复上传按钮状态
         uploadText.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-text me-1" viewBox="0 0 16 16">
-                <path d="M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5z"/>
-                <path d="M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5L9.5 0zm0 1v2A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5z"/>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-cloud-upload me-1" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M4.406 1.342A5.53 5.53 0 0 1 8 0c2.69 0 4.923 2 5.166 4.579C14.758 4.804 16 6.137 16 7.773 16 9.569 14.502 11 12.687 11H10a.5.5 0 0 1 0-1h2.688C13.979 10 15 8.988 15 7.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 2.825 10.328 1 8 1a4.53 4.53 0 0 0-2.941 1.1c-.757.652-1.153 1.438-1.153 2.055v.448l-.445.049C2.064 4.805 1 5.952 1 7.318 1 8.785 2.23 10 3.781 10H6a.5.5 0 0 1 0 1H3.781C1.708 11 0 9.366 0 7.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383z"/>
+                <path fill-rule="evenodd" d="M7.646 4.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 5.707V14.5a.5.5 0 0 1-1 0V5.707L5.354 7.854a.5.5 0 1 1-.708-.708l3-3z"/>
             </svg>
             上传本地文件
         `;
         uploadLabel.classList.remove('disabled', 'btn-outline-success');
         uploadLabel.classList.add('btn-outline-secondary');
-        uploadProgress.classList.add('d-none');
         delete uploadLabel.dataset.token;
+        uploadProgress.classList.add('d-none');
         
-        showResult(`
-            <div class="alert alert-danger" role="alert">
-                <h4 class="alert-heading">处理失败</h4>
-                <p>${error.message || '文件处理失败，请稍后重试'}</p>
-            </div>
-        `);
+        // 显示错误信息
+        // showResult('error', error.message || '上传失败，请稍后重试');
     })
     .finally(() => {
         // 清理文件输入但保留文件名显示
@@ -376,4 +466,50 @@ function handleFileUpload(event) {
     }, 3000);
 }
 
-// ... 保留之前的其他函数 ... 
+// 添加清除上传的函数
+function clearUpload(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    
+    const uploadLabel = document.getElementById('uploadLabel');
+    const uploadText = document.getElementById('uploadText');
+    const fileUpload = document.getElementById('fileUpload');
+    
+    // 恢复上传按钮状态
+    uploadText.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-cloud-upload me-1" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.406 1.342A5.53 5.53 0 0 1 8 0c2.69 0 4.923 2 5.166 4.579C14.758 4.804 16 6.137 16 7.773 16 9.569 14.502 11 12.687 11H10a.5.5 0 0 1 0-1h2.688C13.979 10 15 8.988 15 7.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 2.825 10.328 1 8 1a4.53 4.53 0 0 0-2.941 1.1c-.757.652-1.153 1.438-1.153 2.055v.448l-.445.049C2.064 4.805 1 5.952 1 7.318 1 8.785 2.23 10 3.781 10H6a.5.5 0 0 1 0 1H3.781C1.708 11 0 9.366 0 7.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383z"/>
+            <path fill-rule="evenodd" d="M7.646 4.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 5.707V14.5a.5.5 0 0 1-1 0V5.707L5.354 7.854a.5.5 0 1 1-.708-.708l3-3z"/>
+        </svg>
+        上传本地文件
+    `;
+    uploadLabel.classList.remove('disabled', 'btn-outline-success');
+    uploadLabel.classList.add('btn-outline-secondary');
+    delete uploadLabel.dataset.token;
+    uploadProgress.classList.add('d-none');
+    
+    // 清除文件输入框的值
+    if (fileUpload) {
+        fileUpload.value = '';
+    }
+    
+    // 禁用验证按钮
+    const validateBtn = document.getElementById('validateBtn');
+    if (validateBtn) {
+        validateBtn.disabled = true;
+    }
+    
+    // 清除结果显示
+    const result = document.getElementById('result');
+    if (result) {
+        result.innerHTML = '';
+    }
+    
+    // 隐藏进度条
+    const uploadProgress = document.getElementById('uploadProgress');
+    if (uploadProgress) {
+        uploadProgress.classList.add('d-none');
+    }
+}

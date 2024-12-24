@@ -11,7 +11,7 @@ func TestSave(t *testing.T) {
 		ChannelName: "音乐",
 		StreamUrl:   []string{"http://saka36.fansmestar.com/ch084/playlist.m3u8"},
 	}
-	if err := ms.Save(); err != nil {
+	if err := ms.Save(nil); err != nil {
 		fmt.Println(err)
 	}
 }
@@ -23,7 +23,7 @@ func TestGetList(t *testing.T) {
 		ChannelNameList: []Name{"音乐"},
 	}
 
-	msList, err := ms.GetList(filter)
+	msList, err := ms.GetList(nil, filter)
 	if err != nil {
 		t.Fatal(err)
 	}

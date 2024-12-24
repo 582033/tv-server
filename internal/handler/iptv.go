@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"tv-server/internal/logic/m3u"
+	db "tv-server/internal/model/mongodb"
 	"tv-server/utils/cache"
 
 	"github.com/gin-gonic/gin"
@@ -40,6 +41,12 @@ type UploadResponse struct {
 	FileName string `json:"fileName"`
 }
 
+// 定义结构体
+type ChannelInfo struct {
+	Metadata string `json:"Metadata"`
+	URL      string `json:"URL"`
+}
+
 var (
 	tempFiles = struct {
 		sync.RWMutex
@@ -67,7 +74,7 @@ func HandleValidate(c *gin.Context) {
 	if req.Token != "" {
 		filePath := filepath.Join(cache.CacheDir, req.Token)
 		fmt.Printf("处理上传的文件，Token: %s, 文件路径: %s\n", req.Token, filePath)
-		
+
 		// 确保缓存目录存在
 		if err := os.MkdirAll(cache.CacheDir, 0755); err != nil {
 			fmt.Printf("创建缓存目录失败: %v\n", err)
@@ -77,7 +84,7 @@ func HandleValidate(c *gin.Context) {
 			})
 			return
 		}
-		
+
 		if _, err := os.Stat(filePath); err != nil {
 			fmt.Printf("文件不存在或无法访问: %v\n", err)
 		} else {
@@ -99,6 +106,11 @@ func HandleValidate(c *gin.Context) {
 	// 验证链接
 	fmt.Printf("开始验证 %d 个链接\n", len(allEntries))
 	validEntries := make([]m3u.Entry, 0)
+
+	//将allEntries写入mongodb
+	if err := saveEntries(c, allEntries); err != nil {
+		fmt.Printf("写入MongoDB失败: %v\n", err)
+	}
 
 	// 使用带缓冲的通道进行并发控制
 	workers := 50
@@ -251,9 +263,9 @@ func HandleUpload(c *gin.Context) {
 
 	token := uuid.New().String()
 	tempFilePath := filepath.Join(cache.CacheDir, token)
-	
+
 	fmt.Printf("准备保存文件到: %s\n", tempFilePath)
-	
+
 	// 保存上传的文件
 	if err := c.SaveUploadedFile(file, tempFilePath); err != nil {
 		fmt.Printf("保存文件失败: %v\n", err)
@@ -288,4 +300,22 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/iptv.m3u", HandleM3U)
 	r.POST("/api/validate", HandleValidate)
 	r.POST("/api/upload", HandleUpload) // 添加上传路由
+}
+
+func saveEntries(c *gin.Context, entries []m3u.Entry) error {
+	parsedEntries := m3u.ParseEntry(entries)
+	msList := make([]*db.MediaStream, 0, len(entries))
+
+	//todo 这里的数据，如果StreamName和ChannelName在数据库中，就更新，不在，就插入
+
+	for _, parsedEntry := range parsedEntries {
+		ms := &db.MediaStream{
+			StreamName:  parsedEntry.Title,
+			ChannelName: parsedEntry.Channel,
+			StreamUrl:   []string{parsedEntry.URL},
+			StreamLogo:  parsedEntry.Logo,
+		}
+		msList = append(msList, ms)
+	}
+	return db.BatchSave(c, msList)
 }

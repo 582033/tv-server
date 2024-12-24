@@ -1,23 +1,26 @@
 package middleware
 
 import (
-	"context"
-
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
+// 自定义类型，嵌入 gin.Context
+type SrContext struct {
+	*gin.Context
+}
+
+// 实现 RequestIDGetter 接口
+func (c *SrContext) GetRequestID() string {
+	// 假设请求的唯一标识符是 X-Request-ID
+	return c.Request.Header.Get("X-Request-ID")
+}
+
 func WithContext() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx := context.Background() // 或者使用 context.WithCancel, context.WithValue 等
-		// 你可以在这里添加一些初始化的上下文值，例如请求 ID，用户 ID 等
-		c.Request = c.Request.WithContext(ctx)
-
-		// 使用uuid生成一个request_id
-		requestID := uuid.New().String()
-		c.Writer.Header().Set("X-Request-ID", requestID)
-		c.Set("request_id", requestID)
-
+		c.Set("context", &SrContext{c})
+		// 设置请求唯一标识符
+		c.Request.Header.Set("X-Request-ID", uuid.New().String())
 		c.Next()
 	}
 }

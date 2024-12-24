@@ -1,11 +1,13 @@
 package mongodb
 
 import (
-	"context"
+	"fmt"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type (
@@ -19,9 +21,14 @@ type MediaStream struct {
 	CreatedAt   int64              `bson:"createdAt"`     // 创建时间戳
 	UpdatedAt   int64              `bson:"updatedAt"`     // 更新时间戳
 	StreamName  string             `bson:"streamName"`    // 媒体流名称
+	StreamLogo  string             `bson:"streamLogo"`    // 媒体流Logo
 	ChannelName string             `bson:"channelName"`   // 频道分类
 	StreamUrl   []string           `bson:"streamUrl"`     // 媒体流链接
 	// 其他需要的字段可以在这里添加
+}
+
+func (ms *MediaStream) Collection() *mongo.Collection {
+	return Collection("tv-server", "m3u")
 }
 
 type QueryFilter struct {
@@ -29,16 +36,47 @@ type QueryFilter struct {
 	ChannelNameList []Name
 }
 
-func (ms *MediaStream) Save() error {
+func (ms *MediaStream) Save(c *gin.Context) error {
 	if ms == nil {
 		return nil
 	}
 	now := time.Now().Unix()
 	ms.CreatedAt = now
 	ms.UpdatedAt = now
-	collection := Collection("tv-server", "m3u")
-	_, err := collection.InsertOne(context.Background(), ms)
+	collection := ms.Collection()
+	_, err := collection.InsertOne(c, ms)
 	return err
+}
+
+func BatchSave(c *gin.Context, msList []*MediaStream) error {
+	if len(msList) == 0 {
+		return nil
+	}
+
+	collection := (&MediaStream{}).Collection()
+	batchSize := 100
+
+	//每次100条批量插入, 插入方法用BulkWrite
+	for i := 0; i < len(msList); i += batchSize {
+		end := i + batchSize
+		if end > len(msList) {
+			end = len(msList)
+		}
+		batch := msList[i:end]
+
+		// 将batch切片转换为 interface{} 切片
+		batchInterface := make([]interface{}, len(batch))
+		for j := range batch {
+			batchInterface[j] = batch[j]
+		}
+
+		_, err := collection.InsertMany(c, batchInterface)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+
+	return nil
 }
 
 func (q QueryFilter) ToBson() bson.M {
@@ -52,18 +90,18 @@ func (q QueryFilter) ToBson() bson.M {
 	return filter
 }
 
-func (ms *MediaStream) GetList(filter QueryFilter) ([]*MediaStream, error) {
+func (ms *MediaStream) GetList(c *gin.Context, filter QueryFilter) ([]*MediaStream, error) {
 	//选择collection
-	collection := Collection("tv-server", "m3u")
+	collection := ms.Collection()
 
-	cursor, err := collection.Find(context.TODO(), filter.ToBson())
+	cursor, err := collection.Find(c, filter.ToBson())
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(context.TODO())
+	defer cursor.Close(c)
 
 	var msList []*MediaStream
-	if err := cursor.All(context.TODO(), &msList); err != nil {
+	if err := cursor.All(c, &msList); err != nil {
 		return nil, err
 	}
 

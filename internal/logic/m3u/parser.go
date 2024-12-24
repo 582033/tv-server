@@ -6,13 +6,21 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
 
 type Entry struct {
-	Metadata string
-	URL      string
+	Metadata string `json:"Metadata"`
+	URL      string `json:"URL"`
+}
+
+type ParsedEntry struct {
+	Channel string `json:"channel"`
+	Title   string `json:"title"`
+	URL     string `json:"url"`
+	Logo    string `json:"logo"`
 }
 
 func Parse(content string) []Entry {
@@ -38,6 +46,25 @@ func Parse(content string) []Entry {
 		}
 	}
 	return entries
+}
+
+func ParseEntry(entries []Entry) []ParsedEntry {
+	parsedEntries := make([]ParsedEntry, 0, len(entries))
+	for _, entry := range entries {
+		// 使用正则表达式解析 Metadata 字段中的内容
+		re := regexp.MustCompile(`#EXTINF:-1 tvg-id="([^"]+)" tvg-logo="([^"]+)" group-title="([^"]+)",(.*)`)
+		matches := re.FindStringSubmatch(entry.Metadata)
+		if len(matches) >= 5 {
+			fmt.Printf("Channel: %s, Title: %s, URL: %s, Logo: %s\n", matches[3], matches[4], entry.URL, matches[2])
+			parsedEntries = append(parsedEntries, ParsedEntry{
+				Channel: matches[3],
+				Title:   matches[4],
+				URL:     entry.URL,
+				Logo:    matches[2],
+			})
+		}
+	}
+	return parsedEntries
 }
 
 // ParseFile 从文件解析M3U

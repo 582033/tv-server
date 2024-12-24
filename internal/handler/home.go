@@ -7,7 +7,5 @@ import (
 )
 
 func HandleHome(c *gin.Context) {
-	c.HTML(http.StatusOK, "static/index.html", gin.H{
-		"title": "TV Server",
-	})
+	c.HTML(http.StatusOK, "template/index.html", gin.H{})
 }

@@ -1,50 +1,16 @@
+// internal/router/router_reg.go
 package router
 
 import (
-	"embed"
-	"html/template"
-	"io/fs"
-	"regexp"
-	"strings"
+
+	// 导入 static 包
+	"net/http"
+	"tv-server/internal/assets"
 	"tv-server/internal/handler"
+	"tv-server/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
-
-//go:generate rm ./static/ -rf
-//go:generate cp -r ../../static ./static
-//go:embed static/* static/css/* static/js/*
-var staticFiles embed.FS
-
-func LoadHTMLFromEmbedFS(engine *gin.Engine, embedFS embed.FS, pattern string) {
-	root := template.New("")
-	tmpl := template.Must(root, LoadAndAddToRoot(engine.FuncMap, root, embedFS, pattern))
-	engine.SetHTMLTemplate(tmpl)
-}
-
-func LoadAndAddToRoot(funcMap template.FuncMap, rootTemplate *template.Template, embedFS embed.FS, pattern string) error {
-	pattern = strings.ReplaceAll(pattern, ".", "\\.")
-	pattern = strings.ReplaceAll(pattern, "*", ".*")
-
-	err := fs.WalkDir(embedFS, ".", func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-
-		if matched, _ := regexp.MatchString(pattern, path); !d.IsDir() && matched {
-			data, readErr := embedFS.ReadFile(path)
-			if readErr != nil {
-				return readErr
-			}
-			t := rootTemplate.New(path).Funcs(funcMap)
-			if _, parseErr := t.Parse(string(data)); parseErr != nil {
-				return parseErr
-			}
-		}
-		return nil
-	})
-	return err
-}
 
 func NewRouter() *gin.Engine {
 	r := gin.Default()
@@ -52,11 +18,13 @@ func NewRouter() *gin.Engine {
 	// 设置为发布模式
 	gin.SetMode(gin.ReleaseMode)
 
-	// 加载静态文件
-	r.Static("static/css", "./static/css")
-	r.Static("static/js", "./static/js")
+	//注册中间件
+	r.Use(middleware.WithContext())
+
+	//加载静态文件
+	r.StaticFS("/static", http.FS(assets.StaticFS))
 	//加载模板
-	LoadHTMLFromEmbedFS(r, staticFiles, "static/*.html")
+	assets.LoadHTMLFromEmbedFS(r, assets.TemplateFS, "template/*.html")
 
 	// 注册路由
 	registerPages(r)

@@ -1,6 +1,7 @@
 package mongodb
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -68,6 +69,9 @@ func BatchSave(c *gin.Context, msList []*MediaStream) error {
 		batchInterface := make([]interface{}, len(batch))
 		for j := range batch {
 			batchInterface[j] = batch[j]
+		}
+		if debugBytes, _ := json.Marshal(batchInterface); len(debugBytes) > 0 {
+			fmt.Printf("RequestID:%v DebugMessage:%s Value:%s", nil, "batchInterface", string(debugBytes))
 		}
 
 		_, err := collection.InsertMany(c, batchInterface)

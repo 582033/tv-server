@@ -48,20 +48,27 @@ func Parse(content string) []Entry {
 	return entries
 }
 
+// ParseEntry 解析 Entry 数据并返回 ParsedEntry 列表
 func ParseEntry(entries []Entry) []ParsedEntry {
 	parsedEntries := make([]ParsedEntry, 0, len(entries))
+	// 正则表达式匹配规则
+	re := regexp.MustCompile(`#EXTINF:-1((?:\s+tvg-[^=]+="([^"]*)")*)(?:\s+group-title="([^"]+)"),([^,]+)`)
+
 	for _, entry := range entries {
-		// 使用正则表达式解析 Metadata 字段中的内容
-		re := regexp.MustCompile(`#EXTINF:-1 tvg-id="([^"]+)" tvg-logo="([^"]+)" group-title="([^"]+)",(.*)`)
+		// 使用正则表达式解析 Metadata 字段
 		matches := re.FindStringSubmatch(entry.Metadata)
-		if len(matches) >= 5 {
-			fmt.Printf("Channel: %s, Title: %s, URL: %s, Logo: %s\n", matches[3], matches[4], entry.URL, matches[2])
-			parsedEntries = append(parsedEntries, ParsedEntry{
-				Channel: matches[3],
-				Title:   matches[4],
-				URL:     entry.URL,
-				Logo:    matches[2],
-			})
+		// 仅当 matches 有足够的结果时才打印和处理
+		if len(matches) > 0 {
+			// 如果匹配结果大于 4，意味着我们可以获取到频道、标题、URL 和 Logo
+			if len(matches) >= 5 {
+				// 将解析结果存入 parsedEntries
+				parsedEntries = append(parsedEntries, ParsedEntry{
+					Channel: matches[3], // 频道名称
+					Title:   matches[4], // 标题
+					URL:     entry.URL,  // 原 URL
+					Logo:    matches[2], // Logo URL
+				})
+			}
 		}
 	}
 	return parsedEntries
@@ -103,43 +110,37 @@ func ParseURL(url string) ([]Entry, error) {
 }
 
 // ValidateURL 检查URL是否有效且延迟在允许范围内
-func ValidateURL(url string, maxLatency int) bool {
+func ValidateURL(url string, maxLatency int) (bool, error) {
 	fmt.Printf("开始验证链接: %s (最大延迟: %dms)\n", url, maxLatency)
 
 	client := &http.Client{
-		Timeout: time.Duration(maxLatency) * time.Millisecond,
-		Transport: &http.Transport{
-			DisableKeepAlives:     true,
-			IdleConnTimeout:       time.Duration(maxLatency) * time.Millisecond,
-			TLSHandshakeTimeout:   time.Duration(maxLatency) * time.Millisecond,
-			ResponseHeaderTimeout: time.Duration(maxLatency) * time.Millisecond,
-			MaxIdleConns:          100,
-			MaxIdleConnsPerHost:   100,
-		},
+		Timeout: 5 * time.Second,
 	}
 
-	req, err := http.NewRequest("HEAD", url, nil)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		fmt.Printf("创建请求失败: %s, 错误: %v\n", url, err)
-		return false
+		return false, fmt.Errorf("创建请求失败: %w", err)
 	}
 
 	start := time.Now()
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("请求失败: %s, 错误: %v\n", url, err)
-		return false
+		return false, fmt.Errorf("请求失败: %w", err)
 	}
 	defer resp.Body.Close()
 
 	latency := time.Since(start).Milliseconds()
 	isValid := resp.StatusCode == http.StatusOK && latency <= int64(maxLatency)
 
+	// Read a small portion of the body to ensure content is accessible
 	if isValid {
-		fmt.Printf("链接有效: %s (延迟: %dms)\n", url, latency)
-	} else {
-		fmt.Printf("链接无效: %s (状态码: %d, 延迟: %dms)\n", url, resp.StatusCode, latency)
+		buffer := make([]byte, 1024)
+		_, err := resp.Body.Read(buffer)
+		if err != nil && err != io.EOF {
+			isValid = false
+			return isValid, fmt.Errorf("读取内容失败: %w", err)
+		}
 	}
 
-	return isValid
+	return isValid, nil
 }

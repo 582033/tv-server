@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -120,13 +121,14 @@ func HandleValidate(c *gin.Context) {
 
 	// 启动工作协程
 	for i := 0; i < workers; i++ {
-		go func() {
-			for entry := range tasks {
-				if m3u.ValidateURL(entry.URL, req.MaxLatency) {
-					results <- entry
+		go func(entryChan <-chan m3u.Entry, resultChan chan<- m3u.Entry, maxLatency int) {
+			for entry := range entryChan {
+				valid, err := m3u.ValidateURL(entry.URL, maxLatency)
+				if valid && err == nil {
+					resultChan <- entry
 				}
 			}
-		}()
+		}(tasks, results, req.MaxLatency)
 	}
 
 	// 发送任务
@@ -303,9 +305,16 @@ func RegisterRoutes(r *gin.Engine) {
 }
 
 func saveEntries(c *gin.Context, entries []m3u.Entry) error {
+	if debugBytes, _ := json.Marshal(entries); len(debugBytes) > 0 {
+		fmt.Printf("RequestID:%v DebugMessage:%s Value:%s", nil, "entries", string(debugBytes))
+	}
+	//问题出在这里!!
 	parsedEntries := m3u.ParseEntry(entries)
 	msList := make([]*db.MediaStream, 0, len(entries))
 
+	if debugBytes, _ := json.Marshal(msList); len(debugBytes) > 0 {
+		fmt.Printf("RequestID:%v DebugMessage:%s Value:%s", nil, "msList", string(debugBytes))
+	}
 	//todo 这里的数据，如果StreamName和ChannelName在数据库中，就更新，不在，就插入
 
 	for _, parsedEntry := range parsedEntries {

@@ -60,9 +60,9 @@ func (q QueryFilter) ToBson() bson.M {
 	return filter
 }
 
-func (ms *MediaStream) GetList(c *gin.Context, filter QueryFilter) ([]*MediaStream, error) {
+func (filter *QueryFilter) GetList(c *gin.Context) ([]*MediaStream, error) {
 	//选择collection
-	collection := ms.Collection()
+	collection := (&MediaStream{}).Collection()
 
 	cursor, err := collection.Find(c, filter.ToBson())
 	if err != nil {

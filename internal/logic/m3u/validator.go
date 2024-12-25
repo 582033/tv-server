@@ -2,12 +2,90 @@ package m3u
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 )
+
+//验证及去重
+/*
+ @param allEntries []m3u.Entry // 所有的链接
+ @param maxLatency int // 最大延迟,超过此值的链接将被丢弃
+ @param workerCount int // 工作协程数
+ @return []m3u.Entry, []m3u.Entry, error
+*/
+func ValidateAndUnique(allEntries []Entry, maxLatency int, workerCount int) ([]Entry, []Entry, error) {
+
+	// 使用带缓冲的通道进行并发控制
+	tasks := make(chan Entry, len(allEntries))
+	results := make(chan Entry, len(allEntries))
+	done := make(chan bool)
+
+	validEntries := make([]Entry, 0, len(allEntries))
+	// 启动工作协程
+	for i := 0; i < workerCount; i++ {
+		go func(entryChan <-chan Entry, resultChan chan<- Entry, maxLatency int) {
+			for entry := range entryChan {
+				valid, err := ValidateURL(entry.URL, maxLatency)
+				if valid && err == nil {
+					resultChan <- entry
+				}
+			}
+		}(tasks, results, maxLatency)
+	}
+
+	// 发送任务
+	go func() {
+		for _, entry := range allEntries {
+			tasks <- entry
+		}
+		close(tasks)
+	}()
+
+	// 收集结果
+	go func() {
+		for entry := range results {
+			validEntries = append(validEntries, entry)
+		}
+		done <- true
+	}()
+
+	// 设置超时控制
+	timeout := time.After(time.Duration(maxLatency*len(allEntries)/workerCount) * time.Millisecond)
+
+	var finalValidEntries []Entry
+	select {
+	case <-done:
+		// 在验证完成后进行去重
+		urlMap := make(map[string]Entry)
+		for _, entry := range validEntries {
+			urlMap[entry.URL] = entry
+		}
+		for _, entry := range urlMap {
+			finalValidEntries = append(finalValidEntries, entry)
+		}
+		fmt.Printf("验证完成，原始链接 %d 个，验证通过 %d 个，去重后有效链接 %d 个\n",
+			len(allEntries), len(validEntries), len(finalValidEntries))
+
+	case <-timeout:
+		// 超时时也进行去重
+		urlMap := make(map[string]Entry)
+		for _, entry := range validEntries {
+			urlMap[entry.URL] = entry
+		}
+		for _, entry := range urlMap {
+			finalValidEntries = append(finalValidEntries, entry)
+		}
+		fmt.Printf("验证超时，原始链接 %d 个，验证通过 %d 个，去重后有效链接 %d 个\n",
+			len(allEntries), len(validEntries), len(finalValidEntries))
+	}
+
+	return validEntries, finalValidEntries, nil
+
+}
 
 // ValidateURLsWithLatency 使用指定的延迟阈值验证URLs
 func ValidateURLsWithLatency(entries []Entry, maxLatency int) []Entry {

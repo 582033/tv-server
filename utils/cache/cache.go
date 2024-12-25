@@ -11,7 +11,7 @@ import (
 var (
 	LastValidation time.Time
 	CacheMutex     sync.Mutex
-	CacheDir       = "./cache"
+	CacheDir       = "/tmp/cache"
 	CacheFile      = filepath.Join(CacheDir, "validated.m3u")
 )
 

@@ -113,7 +113,7 @@ func HandleValidate(c *gin.Context) {
 	}
 
 	//开始验证并去重
-	validEntries, finalValidEntries, err := ValidateAndUnique(allEntries, req.MaxLatency, 100)
+	validEntries, finalValidEntries, err := m3u.ValidateAndUnique(allEntries, req.MaxLatency, 100)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ValidateResponse{
 			Success: false,
@@ -257,81 +257,4 @@ func saveEntries(c *gin.Context, entries []m3u.Entry) error {
 		msList = append(msList, ms)
 	}
 	return db.BatchSave(c, msList)
-}
-
-//验证及去重
-/*
- @param allEntries []m3u.Entry // 所有的链接
- @param maxLatency int // 最大延迟,超过此值的链接将被丢弃
- @param workerCount int // 工作协程数
- @return []m3u.Entry, []m3u.Entry, error
-*/
-func ValidateAndUnique(allEntries []m3u.Entry, maxLatency int, workerCount int) ([]m3u.Entry, []m3u.Entry, error) {
-
-	// 使用带缓冲的通道进行并发控制
-	tasks := make(chan m3u.Entry, len(allEntries))
-	results := make(chan m3u.Entry, len(allEntries))
-	done := make(chan bool)
-
-	validEntries := make([]m3u.Entry, 0, len(allEntries))
-	// 启动工作协程
-	for i := 0; i < workerCount; i++ {
-		go func(entryChan <-chan m3u.Entry, resultChan chan<- m3u.Entry, maxLatency int) {
-			for entry := range entryChan {
-				valid, err := m3u.ValidateURL(entry.URL, maxLatency)
-				if valid && err == nil {
-					resultChan <- entry
-				}
-			}
-		}(tasks, results, maxLatency)
-	}
-
-	// 发送任务
-	go func() {
-		for _, entry := range allEntries {
-			tasks <- entry
-		}
-		close(tasks)
-	}()
-
-	// 收集结果
-	go func() {
-		for entry := range results {
-			validEntries = append(validEntries, entry)
-		}
-		done <- true
-	}()
-
-	// 设置超时控制
-	timeout := time.After(time.Duration(maxLatency*len(allEntries)/workerCount) * time.Millisecond)
-
-	var finalValidEntries []m3u.Entry
-	select {
-	case <-done:
-		// 在验证完成后进行去重
-		urlMap := make(map[string]m3u.Entry)
-		for _, entry := range validEntries {
-			urlMap[entry.URL] = entry
-		}
-		for _, entry := range urlMap {
-			finalValidEntries = append(finalValidEntries, entry)
-		}
-		fmt.Printf("验证完成，原始链接 %d 个，验证通过 %d 个，去重后有效链接 %d 个\n",
-			len(allEntries), len(validEntries), len(finalValidEntries))
-
-	case <-timeout:
-		// 超时时也进行去重
-		urlMap := make(map[string]m3u.Entry)
-		for _, entry := range validEntries {
-			urlMap[entry.URL] = entry
-		}
-		for _, entry := range urlMap {
-			finalValidEntries = append(finalValidEntries, entry)
-		}
-		fmt.Printf("验证超时，原始链接 %d 个，验证通过 %d 个，去重后有效链接 %d 个\n",
-			len(allEntries), len(validEntries), len(finalValidEntries))
-	}
-
-	return validEntries, finalValidEntries, nil
-
 }

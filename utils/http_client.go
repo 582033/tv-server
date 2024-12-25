@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -64,4 +65,19 @@ func normalizeURL(urlStr string) string {
 	}
 
 	return u.String()
+}
+
+func fetchContent(url string) (string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	content, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(content), nil
 }

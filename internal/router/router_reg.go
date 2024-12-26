@@ -44,4 +44,5 @@ func registerAPI(r *gin.Engine) {
 	r.GET(URLIPTV, handler.HandleM3U)
 	r.POST(URLValidate, handler.HandleValidate)
 	r.POST(URLUpload, handler.HandleUpload)
+	r.GET(URLProcess, handler.HandleProcess)
 }

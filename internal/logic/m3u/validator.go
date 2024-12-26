@@ -2,39 +2,55 @@ package m3u
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
+	"tv-server/utils"
+)
+
+var (
+	processCount int
+	totalCount   int
+	processLock  sync.RWMutex
 )
 
 //验证及去重
 /*
  @param allEntries []m3u.Entry // 所有的链接
- @param maxLatency int // 最大延迟,超过此值的链接将被丢弃
+ @param maxLatency time.Duration // 单位毫秒,最大延迟,超过此值的链接将被丢弃
  @param workerCount int // 工作协程数
  @return []m3u.Entry, []m3u.Entry, error
 */
-func ValidateAndUnique(allEntries []Entry, maxLatency int, workerCount int) ([]Entry, []Entry, error) {
+func ValidateAndUnique(allEntries []Entry, maxLatency time.Duration, workerCount int) ([]Entry, []Entry, error) {
 
 	// 使用带缓冲的通道进行并发控制
 	tasks := make(chan Entry, len(allEntries))
 	results := make(chan Entry, len(allEntries))
+	process := make(chan int, 0)
 	done := make(chan bool)
 
 	validEntries := make([]Entry, 0, len(allEntries))
+
+	//开始批量验证提醒,输出并发的协程数以及总耗时
+	fmt.Println("maxLatency:", maxLatency)
+	fmt.Printf("开始批量验证，总共链接数:%d，并发协程数: %d, 预计耗时:%s\n", len(allEntries), workerCount, utils.CalculateTotalTimeToString(maxLatency, workerCount, len(allEntries)))
+
 	// 启动工作协程
 	for i := 0; i < workerCount; i++ {
-		go func(entryChan <-chan Entry, resultChan chan<- Entry, maxLatency int) {
+		go func(entryChan <-chan Entry, resultChan chan<- Entry, processChan chan<- int, maxLatency time.Duration) {
 			for entry := range entryChan {
 				valid, err := ValidateURL(entry.URL, maxLatency)
 				if valid && err == nil {
 					resultChan <- entry
 				}
+				processChan <- 1
 			}
-		}(tasks, results, maxLatency)
+		}(tasks, results, process, maxLatency)
 	}
 
 	// 发送任务
@@ -53,8 +69,17 @@ func ValidateAndUnique(allEntries []Entry, maxLatency int, workerCount int) ([]E
 		done <- true
 	}()
 
-	// 设置超时控制
-	timeout := time.After(time.Duration(maxLatency*len(allEntries)/workerCount) * time.Millisecond)
+	// 收集进度
+	go func() {
+		for range process {
+			processLock.Lock()
+			processCount++
+			processLock.Unlock()
+		}
+	}()
+
+	// 设置超时(此处设置的是未验证完成也返回结果
+	//timeout := time.After(maxLatency * time.Millisecond)
 
 	var finalValidEntries []Entry
 	select {
@@ -70,17 +95,19 @@ func ValidateAndUnique(allEntries []Entry, maxLatency int, workerCount int) ([]E
 		fmt.Printf("验证完成，原始链接 %d 个，验证通过 %d 个，去重后有效链接 %d 个\n",
 			len(allEntries), len(validEntries), len(finalValidEntries))
 
-	case <-timeout:
-		// 超时时也进行去重
-		urlMap := make(map[string]Entry)
-		for _, entry := range validEntries {
-			urlMap[entry.URL] = entry
-		}
-		for _, entry := range urlMap {
-			finalValidEntries = append(finalValidEntries, entry)
-		}
-		fmt.Printf("验证超时，原始链接 %d 个，验证通过 %d 个，去重后有效链接 %d 个\n",
-			len(allEntries), len(validEntries), len(finalValidEntries))
+		/*
+			case <-timeout:
+				// 超时时也进行去重
+				urlMap := make(map[string]Entry)
+				for _, entry := range validEntries {
+					urlMap[entry.URL] = entry
+				}
+				for _, entry := range urlMap {
+					finalValidEntries = append(finalValidEntries, entry)
+				}
+				fmt.Printf("验证超时，原始链接 %d 个，验证通过 %d 个，去重后有效链接 %d 个\n",
+					len(allEntries), len(validEntries), len(finalValidEntries))
+		*/
 	}
 
 	return validEntries, finalValidEntries, nil
@@ -88,7 +115,7 @@ func ValidateAndUnique(allEntries []Entry, maxLatency int, workerCount int) ([]E
 }
 
 // ValidateURLsWithLatency 使用指定的延迟阈值验证URLs
-func ValidateURLsWithLatency(entries []Entry, maxLatency int) []Entry {
+func ValidateURLsWithLatency(entries []Entry, maxLatency time.Duration) []Entry {
 	var validEntries []Entry
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -113,7 +140,7 @@ func ValidateURLsWithLatency(entries []Entry, maxLatency int) []Entry {
 }
 
 // validateM3U8Stream 验证 m3u8 流
-func validateM3U8Stream(url string, maxLatency int) (bool, int64) {
+func validateM3U8Stream(url string, maxLatency time.Duration) (bool, int64) {
 	client := &http.Client{
 		Timeout: time.Duration(maxLatency*2) * time.Millisecond,
 	}
@@ -227,7 +254,71 @@ func getDirectoryURL(url string) string {
 	return url + "/"
 }
 
-// ValidateURLs 使用默认的1000ms延迟阈值验证URLs
-func ValidateURLs(entries []Entry) []Entry {
-	return ValidateURLsWithLatency(entries, 1000)
+// ValidateURL 检查URL是否有效且延迟在允许范围内
+func ValidateURL(url string, maxLatency time.Duration) (bool, error) {
+	//fmt.Printf("开始验证链接: %s (最大延迟: %dms)\n,", url, maxLatency)
+
+	client := &http.Client{
+		Timeout: maxLatency * time.Millisecond,
+	}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return false, fmt.Errorf("创建请求失败: %w", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	isValid := resp.StatusCode == http.StatusOK
+
+	// Read a small portion of the body to ensure content is accessible
+	if isValid {
+		buffer := make([]byte, 1024)
+		_, err := resp.Body.Read(buffer)
+		if err != nil && err != io.EOF {
+			isValid = false
+			return isValid, fmt.Errorf("读取内容失败: %w", err)
+		}
+	}
+
+	return isValid, nil
+}
+func checkWithFFprobe(url string, maxLatency time.Duration) (bool, error) {
+	// Create a context with timeout based on the maxLatency
+	ctx, cancel := context.WithTimeout(context.Background(), maxLatency*time.Millisecond)
+	defer cancel()
+
+	// Run the ffprobe command
+	cmd := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name", "-of", "default=noprint_wrappers=1:nokey=1", url)
+
+	// Capture command output
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return false, fmt.Errorf("ffprobe 超时: 超过最大延迟限制 %dms", maxLatency)
+		}
+		return false, fmt.Errorf("ffprobe 错误: %w", err)
+	}
+
+	// If output is empty, means no valid video stream found
+	if len(output) == 0 {
+		return false, fmt.Errorf("没有找到有效的视频流")
+	}
+
+	// Print stream type
+	fmt.Printf("视频流类型: %s\n", string(output))
+	return true, nil
+}
+
+func GetProcess() float64 {
+	processLock.RLock()
+	defer processLock.RUnlock()
+	if totalCount == 0 {
+		return 0
+	}
+	return float64(processCount) / float64(totalCount)
 }

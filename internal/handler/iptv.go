@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -56,6 +55,22 @@ var (
 	}
 )
 
+// HandleProcess 获取验证进度
+func HandleProcess(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "获取进度成功",
+		"process": m3u.GetProcess(),
+	})
+}
+
+func HandleProcessSSE(c *gin.Context) {
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("Transfer-Encoding", "chunked")
+}
+
 // HandleValidate 处理验证请求
 func HandleValidate(c *gin.Context) {
 	var req ValidateRequest
@@ -105,15 +120,16 @@ func HandleValidate(c *gin.Context) {
 
 	// 验证链接
 	fmt.Printf("开始验证 %d 个链接\n", len(allEntries))
-	validEntries := make([]m3u.Entry, 0)
 
 	//将allEntries写入mongodb
 	if err := saveEntries(c, allEntries); err != nil {
 		fmt.Printf("写入MongoDB失败: %v\n", err)
 	}
 
+	//req.MaxLatency单位是ms
+	maxLatency := time.Duration(req.MaxLatency) * time.Millisecond
 	//开始验证并去重
-	validEntries, finalValidEntries, err := m3u.ValidateAndUnique(allEntries, req.MaxLatency, 100)
+	validEntries, finalValidEntries, err := m3u.ValidateAndUnique(allEntries, maxLatency, 100)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ValidateResponse{
 			Success: false,
@@ -235,17 +251,8 @@ func RegisterRoutes(r *gin.Engine) {
 }
 
 func saveEntries(c *gin.Context, entries []m3u.Entry) error {
-	if debugBytes, _ := json.Marshal(entries); len(debugBytes) > 0 {
-		fmt.Printf("RequestID:%v DebugMessage:%s Value:%s", nil, "entries", string(debugBytes))
-	}
-	//问题出在这里!!
 	parsedEntries := m3u.ParseEntry(entries)
 	msList := make([]*db.MediaStream, 0, len(entries))
-
-	if debugBytes, _ := json.Marshal(msList); len(debugBytes) > 0 {
-		fmt.Printf("RequestID:%v DebugMessage:%s Value:%s", nil, "msList", string(debugBytes))
-	}
-	//todo 这里的数据，如果StreamName和ChannelName在数据库中，就更新，不在，就插入
 
 	for _, parsedEntry := range parsedEntries {
 		ms := &db.MediaStream{

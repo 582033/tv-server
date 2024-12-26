@@ -10,7 +10,7 @@ const (
 	URLIPTV     = "/iptv.m3u"
 	URLValidate = "/api/validate"
 	URLUpload   = "/api/upload"
-
+	URLProcess  = "/api/process"
 	// 其他路由分类可以在这里继续添加
 	// 例如：
 	// URLAdmin  = "/admin"

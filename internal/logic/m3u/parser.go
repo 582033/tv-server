@@ -8,7 +8,6 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"time"
 )
 
 type Entry struct {
@@ -107,40 +106,4 @@ func ParseURL(url string) ([]Entry, error) {
 	}
 
 	return Parse(string(content)), nil
-}
-
-// ValidateURL 检查URL是否有效且延迟在允许范围内
-func ValidateURL(url string, maxLatency int) (bool, error) {
-	fmt.Printf("开始验证链接: %s (最大延迟: %dms)\n", url, maxLatency)
-
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return false, fmt.Errorf("创建请求失败: %w", err)
-	}
-
-	start := time.Now()
-	resp, err := client.Do(req)
-	if err != nil {
-		return false, fmt.Errorf("请求失败: %w", err)
-	}
-	defer resp.Body.Close()
-
-	latency := time.Since(start).Milliseconds()
-	isValid := resp.StatusCode == http.StatusOK && latency <= int64(maxLatency)
-
-	// Read a small portion of the body to ensure content is accessible
-	if isValid {
-		buffer := make([]byte, 1024)
-		_, err := resp.Body.Read(buffer)
-		if err != nil && err != io.EOF {
-			isValid = false
-			return isValid, fmt.Errorf("读取内容失败: %w", err)
-		}
-	}
-
-	return isValid, nil
 }

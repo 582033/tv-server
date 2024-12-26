@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 	"tv-server/internal/logic/m3u"
 	"tv-server/internal/model/mongodb"
 	"tv-server/utils/cache"
@@ -13,8 +14,7 @@ import (
 func List(c *gin.Context) {
 	filter := &mongodb.QueryFilter{
 		ChannelNameList: []mongodb.Name{
-			"央视频道",
-			"卫视频道",
+			"成人视频",
 		},
 	}
 	r, _ := filter.GetList(c)
@@ -24,13 +24,17 @@ func List(c *gin.Context) {
 
 	allEntries := make([]m3u.Entry, 0, len(r))
 	for _, v := range r {
-		allEntries = append(allEntries, m3u.Entry{
-			Metadata: fmt.Sprintf("#EXTINF:-1 tvg-name=\"%s\" tvg-logo=\"%s\",group-title=\"%s\",%s", v.ChannelName, v.StreamLogo, v.ChannelName, v.StreamName),
-			URL:      v.StreamUrl[0],
-		})
+		//如果url有多个，则都需要进行验证,最终去重
+		metadata := fmt.Sprintf("#EXTINF:-1 tvg-name=\"%s\" tvg-logo=\"%s\",group-title=\"%s\",%s", v.ChannelName, v.StreamLogo, v.ChannelName, v.StreamName)
+		for _, url := range v.StreamUrl {
+			allEntries = append(allEntries, m3u.Entry{
+				Metadata: metadata,
+				URL:      url,
+			})
+		}
 	}
 	//开始验证并去重
-	_, finalValidEntries, err := m3u.ValidateAndUnique(allEntries, 1000, 100)
+	_, finalValidEntries, err := m3u.ValidateAndUnique(allEntries, 1000*time.Millisecond, 100)
 	if err != nil {
 		return
 	}
@@ -44,5 +48,16 @@ func List(c *gin.Context) {
 			fmt.Printf("写入文件失败: %v\n", err)
 			return
 		}
+	}
+}
+
+func ListAllChannel(c *gin.Context) {
+	filter := &mongodb.QueryFilter{}
+	channelNameList, err := filter.GetAllChannel(c)
+	if err != nil {
+		return
+	}
+	for _, channelName := range channelNameList {
+		fmt.Println(channelName)
 	}
 }

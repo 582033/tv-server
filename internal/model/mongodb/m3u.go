@@ -142,3 +142,29 @@ func BatchSave(c *gin.Context, msList []*MediaStream) error {
 
 	return nil
 }
+
+// 查出所有的distinct ChannelName
+func (filter *QueryFilter) GetAllChannel(c *gin.Context) ([]Name, error) {
+	collection := (&MediaStream{}).Collection()
+	//拼接条件
+	cursor, err := collection.Aggregate(c, []bson.M{
+		{"$match": filter.ToBson()},
+		{"$group": bson.M{"_id": "$channelName"}},
+		{"$sort": bson.M{"channelName": 1}},
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(c)
+
+	var channelNameList []Name
+	for cursor.Next(c) {
+		var result bson.M
+		if err := cursor.Decode(&result); err != nil {
+			return nil, err
+		}
+		channelName := Name(result["_id"].(string))
+		channelNameList = append(channelNameList, channelName)
+	}
+	return channelNameList, nil
+}

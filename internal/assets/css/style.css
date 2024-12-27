@@ -230,3 +230,55 @@ body {
 
 /* 引入 Bootstrap Icons */
 @import url("https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css");
+
+/* 频道名称样式 */
+.channel-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px; /* 根据需要调整最大宽度 */
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* 浮动验证按钮样式 */
+.floating-verify-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: none;
+    z-index: 1000;
+}
+
+/* 验证模态框样式 */
+.tolerance-setting {
+    padding: 10px 0;
+}
+
+.tolerance-label {
+    font-size: 16px;
+}
+
+.tolerance-hint {
+    font-size: 14px;
+}
+
+.verify-btn {
+    padding: 12px;
+    font-size: 16px;
+    background-color: #4e95ff;
+    border: none;
+}
+
+.verify-btn:hover {
+    background-color: #3d84f5;
+}
+
+/* 滑块样式 */
+.form-range::-webkit-slider-thumb {
+    background: #4e95ff;
+}
+
+.form-range::-webkit-slider-runnable-track {
+    background: #e9ecef;
+}

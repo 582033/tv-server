@@ -82,12 +82,19 @@ func HandleChannelPage(c *gin.Context) {
 // HandleChannelValidate 处理频道验证请求
 func HandleChannelValidate(c *gin.Context) {
 	var req ChannelValidateRequest
+	// 添加请求体解析
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
-			"message": "Invalid request",
+			"message": "无效的请求参数",
+			"error":   err.Error(),
 		})
 		return
+	}
+
+	// 设置默认超时时间
+	if req.Timeout <= 0 {
+		req.Timeout = 5000 // 默认5秒
 	}
 
 	// 从请求中获取频道名称列表

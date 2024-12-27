@@ -56,6 +56,7 @@ var (
 )
 
 // HandleProcess 获取验证进度
+// ** 需要先触发验证，在请求进度才能从0开始，否则可能获取到的进度是100
 func HandleProcess(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

@@ -7,10 +7,14 @@ const (
 	URLWelcome = "/home"
 
 	// API 路由
-	URLIPTV     = "/iptv.m3u"
-	URLValidate = "/api/validate"
-	URLUpload   = "/api/upload"
-	URLProcess  = "/api/process"
+	URLIPTV             = "/iptv.m3u"
+	URLValidate         = "/api/validate"
+	URLUpload           = "/api/upload"
+	URLProcess          = "/api/process"
+	URLChannels         = "/api/channels"
+	URLCategory         = "/category"
+	URLChannelRecordNum = "/api/channel/get_record_num"
+
 	// 其他路由分类可以在这里继续添加
 	// 例如：
 	// URLAdmin  = "/admin"

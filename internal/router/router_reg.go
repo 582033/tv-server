@@ -37,6 +37,7 @@ func NewRouter() *gin.Engine {
 func registerPages(r *gin.Engine) {
 	r.GET(URLHome, handler.HandleHome)
 	r.GET(URLWelcome, handler.HandleHome)
+	r.GET(URLCategory, handler.HandleChannelPage)
 }
 
 // 注册 API 路由
@@ -45,4 +46,6 @@ func registerAPI(r *gin.Engine) {
 	r.POST(URLValidate, handler.HandleValidate)
 	r.POST(URLUpload, handler.HandleUpload)
 	r.GET(URLProcess, handler.HandleProcess)
+	r.GET(URLChannels, handler.ListAllChannel)
+	r.GET(URLChannelRecordNum, handler.GetRecordNums)
 }

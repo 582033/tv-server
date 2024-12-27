@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>频道分类</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- 自定义样式 -->
+    <link href="/static/css/style.css" rel="stylesheet">
+    <style>
+        .channel-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px; /* 根据需要调整最大宽度 */
+            display: inline-block;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    {{ template "navbar" . }}
+
+    <div class="container py-5">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h1 class="text-center mb-4">频道分类</h1>
+                <div class="d-flex justify-content-between align-items-center sticky-top bg-light py-2">
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
+                        <label class="form-check-label" for="selectAllCheckbox">
+                            全选
+                        </label>
+                    </div>
+                    <button id="batchActionBtn" class="btn btn-primary" disabled>
+                        已选择 <span id="selectedCount">0</span> 个频道
+                    </button>
+                </div>
+                <ul class="list-group mt-3" id="channelList">
+                    <!-- 频道列表将通过 JavaScript 动态加载 -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 存储选中的频道
+        let selectedChannels = new Set();
+
+        // 更新选中计数和按钮状态
+        function updateSelection() {
+            const count = selectedChannels.size;
+            document.getElementById('selectedCount').textContent = count;
+            document.getElementById('batchActionBtn').disabled = count === 0;
+        }
+
+        // 全选功能
+        function toggleSelectAll(isChecked) {
+            const checkboxes = document.querySelectorAll('.channel-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = isChecked;
+                if (isChecked) {
+                    selectedChannels.add(checkbox.value);
+                } else {
+                    selectedChannels.delete(checkbox.value);
+                }
+            });
+            updateSelection();
+        }
+
+        // 加载频道列表和记录数
+        async function loadChannelsWithCount() {
+            try {
+                // 获取频道列表
+                const channelsResponse = await fetch('/api/channels');
+                const channelsData = await channelsResponse.json();
+                
+                if (channelsData.code === 200 && channelsData.data) {
+                    const channelList = document.getElementById('channelList');
+                    const channels = channelsData.data;
+
+                    // 获取所有频道的记录数
+                    const recordNumsResponse = await fetch(`/api/channel/get_record_num?${channels.map(ch => `channelName[]=${encodeURIComponent(ch)}`).join('&')}`);
+                    const recordNumsData = await recordNumsResponse.json();
+                    const recordNums = recordNumsData.code === 200 ? recordNumsData.data : {};
+
+                    channels.forEach(channel => {
+                        const listItem = document.createElement('li');
+                        listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        listItem.innerHTML = `
+                            <div>
+                                <input class="form-check-input me-1 channel-checkbox" type="checkbox" 
+                                       value="${channel}" id="check_${encodeURIComponent(channel)}">
+                                <label class="form-check-label channel-name" for="check_${encodeURIComponent(channel)}">
+                                    ${channel}
+                                </label>
+                            </div>
+                            <span class="badge bg-secondary rounded-pill">${recordNums[channel] || 0} 个频道</span>
+                        `;
+                        channelList.appendChild(listItem);
+
+                        // 添加复选框事件监听
+                        const checkbox = listItem.querySelector('.channel-checkbox');
+                        checkbox.addEventListener('change', function() {
+                            if (this.checked) {
+                                selectedChannels.add(this.value);
+                            } else {
+                                selectedChannels.delete(this.value);
+                            }
+                            updateSelection();
+                        });
+                    });
+
+                    // 添加全选复选框事件监听
+                    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+                    selectAllCheckbox.addEventListener('change', function() {
+                        toggleSelectAll(this.checked);
+                    });
+                } else {
+                    console.error('获取频道列表失败:', channelsData.message || '未知错误');
+                }
+            } catch (error) {
+                console.error('请求失败:', error);
+            }
+        }
+
+        // 页面加载时执行
+        loadChannelsWithCount();
+
+        // 菜单展开收起功能
+        const sideMenu = document.querySelector('.side-menu');
+        const menuToggle = document.querySelector('.menu-toggle');
+        
+        menuToggle.addEventListener('click', function() {
+            sideMenu.classList.toggle('collapsed');
+        });
+    </script>
+</body>
+</html> 

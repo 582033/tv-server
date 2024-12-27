@@ -9,7 +9,3 @@ import (
 func TestList(t *testing.T) {
 	List(&gin.Context{})
 }
-
-func TestListAllChannel(t *testing.T) {
-	ListAllChannel(&gin.Context{})
-}

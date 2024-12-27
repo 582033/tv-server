@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U Validator</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>M3U Validator</h1>
+        <form id="uploadForm">
+            <input type="file" name="file" accept=".m3u,.m3u8">
+            <button type="submit">上传文件</button>
+        </form>
+        <div id="uploadResult"></div>
+        <form id="validateForm">
+            <div class="validate-options">
+                <label class="validate-option">
+                    <input type="radio" name="validateMethod" value="http" checked>
+                    HTTP 验证
+                </label>
+                <label class="validate-option">
+                    <input type="radio" name="validateMethod" value="ffprobe">
+                    FFprobe 验证 (更准确但较慢)
+                </label>
+            </div>
+            <textarea name="urls" placeholder="Enter M3U URLs, one per line"></textarea>
+            <input type="number" name="maxLatency" placeholder="Max Latency (ms)" value="2000">
+            <input type="hidden" name="token" id="token">
+            <button type="submit">验证</button>
+        </form>
+        <div id="progressContainer" class="progress-container" style="display: none;">
+            <div id="progressBar" class="progress-bar"></div>
+            <div id="progressText" class="progress-text-overlay">0%</div>
+        </div>
+        <div id="validateResult"></div>
+        <div id="m3uLink"></div>
+    </div>
+    <script src="/assets/js/main.js"></script>
+</body>
+
+</html> 

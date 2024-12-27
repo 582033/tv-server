@@ -29,7 +29,6 @@ func loadAndAddToRoot(funcMap template.FuncMap, rootTemplate *template.Template,
 	pattern = strings.ReplaceAll(pattern, "*", ".*")
 
 	err := fs.WalkDir(embedFS, ".", func(path string, d fs.DirEntry, walkErr error) error {
-		fmt.Println("Walking path:", path)
 		if walkErr != nil {
 			fmt.Println("Walk error:", walkErr)
 			return walkErr
@@ -44,7 +43,6 @@ func loadAndAddToRoot(funcMap template.FuncMap, rootTemplate *template.Template,
 			}
 			templatePath := filepath.ToSlash(path)
 			templatePath = strings.TrimPrefix(templatePath, "static/")
-			fmt.Println("Template path:", templatePath)
 			t := rootTemplate.New(templatePath).Funcs(funcMap)
 			if _, parseErr := t.Parse(string(data)); parseErr != nil {
 				fmt.Println("Parse error:", parseErr)

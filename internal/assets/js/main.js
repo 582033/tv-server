@@ -331,9 +331,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // 添加文件上传处理
     const fileUpload = document.getElementById('fileUpload');
     fileUpload.addEventListener('change', handleFileUpload);
+
+    // 菜单展开收起功能
+    const sideMenu = document.querySelector('.side-menu');
+    const menuToggle = document.querySelector('.menu-toggle');
+    
+    menuToggle.addEventListener('click', function() {
+        sideMenu.classList.toggle('collapsed');
+    });
 });
 
-// 添加滑块更新��数
+// 添加滑块更新函数
 function updateLatencyValue() {
     const value = document.getElementById('latencyRange').value;
     document.getElementById('latencyValue').textContent = value;
@@ -451,7 +459,7 @@ function handleFileUpload(event) {
         // showResult('error', error.message || '上传失败，请稍后重试');
     })
     .finally(() => {
-        // 清理文件输入但保留文��名显示
+        // 清理文件输入但保留文件名显示
         event.target.value = '';
         // 隐藏进度条
         setTimeout(() => {

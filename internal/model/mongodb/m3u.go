@@ -168,3 +168,20 @@ func (filter *QueryFilter) GetAllChannel(c *gin.Context) ([]Name, error) {
 	}
 	return channelNameList, nil
 }
+
+// GetRecordNums 获取频道记录数
+func (f *QueryFilter) GetRecordNums(c *gin.Context) (map[Name]int64, error) {
+	result := make(map[Name]int64)
+
+	// 获取每个频道的记录数
+	for _, channelName := range f.ChannelNameList {
+		collection := (&MediaStream{}).Collection()
+		count, err := collection.CountDocuments(c, bson.M{"channelName": channelName})
+		if err != nil {
+			return nil, err
+		}
+		result[channelName] = count
+	}
+
+	return result, nil
+}

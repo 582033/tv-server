@@ -13,9 +13,7 @@ import (
 
 func List(c *gin.Context) {
 	filter := &mongodb.QueryFilter{
-		ChannelNameList: []mongodb.Name{
-			"成人视频",
-		},
+		ChannelNameList: []mongodb.Name{},
 	}
 	r, _ := filter.GetList(c)
 	for k, v := range r {
@@ -48,16 +46,5 @@ func List(c *gin.Context) {
 			fmt.Printf("写入文件失败: %v\n", err)
 			return
 		}
-	}
-}
-
-func ListAllChannel(c *gin.Context) {
-	filter := &mongodb.QueryFilter{}
-	channelNameList, err := filter.GetAllChannel(c)
-	if err != nil {
-		return
-	}
-	for _, channelName := range channelNameList {
-		fmt.Println(channelName)
 	}
 }

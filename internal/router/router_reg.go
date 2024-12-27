@@ -48,4 +48,5 @@ func registerAPI(r *gin.Engine) {
 	r.GET(URLProcess, handler.HandleProcess)
 	r.GET(URLChannels, handler.ListAllChannel)
 	r.GET(URLChannelRecordNum, handler.GetRecordNums)
+	r.POST(URLChannelValidate, handler.HandleChannelValidate)
 }

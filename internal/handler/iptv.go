@@ -64,11 +64,23 @@ func HandleProcess(c *gin.Context) {
 	})
 }
 
-func HandleProcessSSE(c *gin.Context) {
-	c.Writer.Header().Set("Content-Type", "text/event-stream")
-	c.Writer.Header().Set("Cache-Control", "no-cache")
-	c.Writer.Header().Set("Connection", "keep-alive")
-	c.Writer.Header().Set("Transfer-Encoding", "chunked")
+// SaveValidatedEntries 保存验证后的条目到缓存文件
+func SaveValidatedEntries(entries []m3u.Entry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	tempFile := cache.CacheFile + ".temp"
+	if err := m3u.WriteToFile(entries, tempFile); err != nil {
+		return fmt.Errorf("写入缓存失败: %v", err)
+	}
+
+	if err := os.Rename(tempFile, cache.CacheFile); err != nil {
+		os.Remove(tempFile)
+		return fmt.Errorf("更新缓存文件失败: %v", err)
+	}
+
+	return nil
 }
 
 // HandleValidate 处理验证请求
@@ -138,25 +150,13 @@ func HandleValidate(c *gin.Context) {
 		return
 	}
 
-	// 写入缓存文件
-	if len(finalValidEntries) > 0 {
-		tempFile := cache.CacheFile + ".temp"
-		if err := m3u.WriteToFile(finalValidEntries, tempFile); err != nil {
-			c.JSON(http.StatusInternalServerError, ValidateResponse{
-				Success: false,
-				Message: "写入缓存失败",
-			})
-			return
-		}
-
-		if err := os.Rename(tempFile, cache.CacheFile); err != nil {
-			os.Remove(tempFile)
-			c.JSON(http.StatusInternalServerError, ValidateResponse{
-				Success: false,
-				Message: "更新缓存文件失败",
-			})
-			return
-		}
+	// 使用新的公共函数
+	if err := SaveValidatedEntries(finalValidEntries); err != nil {
+		c.JSON(http.StatusInternalServerError, ValidateResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+		return
 	}
 
 	// 返回响应

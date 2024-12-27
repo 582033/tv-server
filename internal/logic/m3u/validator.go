@@ -14,9 +14,10 @@ import (
 )
 
 var (
-	processCount int
-	totalCount   int
-	processLock  sync.RWMutex
+	processCount       int
+	totalCount         int
+	processLock        sync.RWMutex
+	validationComplete bool
 )
 
 //验证及去重
@@ -27,49 +28,80 @@ var (
  @return []m3u.Entry, []m3u.Entry, error
 */
 func ValidateAndUnique(allEntries []Entry, maxLatency time.Duration, workerCount int) ([]Entry, []Entry, error) {
+	return collectResults(allEntries, maxLatency, workerCount)
+}
 
-	// 使用带缓冲的通道进行并发控制
+// 启动工作协程
+func startWorkers(allEntries []Entry, workerCount int, maxLatency time.Duration, tasks <-chan Entry, results chan<- Entry, process chan<- int, wg *sync.WaitGroup) {
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func(entryChan <-chan Entry, resultChan chan<- Entry, processChan chan<- int, maxLatency time.Duration) {
+			defer wg.Done()
+			for entry := range entryChan {
+				valid, err := ValidateURL(entry.URL, maxLatency)
+				if valid && err == nil {
+					select {
+					case resultChan <- entry:
+						// 成功发送结果
+					default:
+						// 如果通道已满，跳过
+					}
+				}
+				select {
+				case processChan <- 1:
+					// 成功发送进度
+				default:
+					// 如果通道已满，跳过
+				}
+			}
+		}(tasks, results, process, maxLatency)
+	}
+}
+
+// 发送任务
+func sendTasks(allEntries []Entry, tasks chan<- Entry) {
+	defer close(tasks) // 确保任务发送完后关闭通道
+	for _, entry := range allEntries {
+		tasks <- entry
+	}
+}
+
+// 获取结果
+func getResults(results <-chan Entry, validEntries *[]Entry, done chan<- bool) {
+	for entry := range results {
+		*validEntries = append(*validEntries, entry)
+	}
+	done <- true
+}
+
+// 收集结果
+func collectResults(allEntries []Entry, maxLatency time.Duration, workerCount int) ([]Entry, []Entry, error) {
+	// 调整 workerCount，不要超过实际任务数
+	if workerCount > len(allEntries) {
+		workerCount = len(allEntries)
+	}
+
 	tasks := make(chan Entry, len(allEntries))
 	results := make(chan Entry, len(allEntries))
-	process := make(chan int, 0)
+	process := make(chan int, len(allEntries))
 	done := make(chan bool)
 
 	validEntries := make([]Entry, 0, len(allEntries))
 
-	//开始批量验证提醒,输出并发的协程数以及总耗时
+	var wg sync.WaitGroup
+
 	fmt.Println("maxLatency:", maxLatency)
-	fmt.Printf("开始批量验证，总共链接数:%d，并发协程数: %d, 预计耗时:%s\n", len(allEntries), workerCount, utils.CalculateTotalTimeToString(maxLatency, workerCount, len(allEntries)))
+	fmt.Printf("开始批量验证，总共链接数:%d，并发协程数: %d, 预计耗时:%s\n",
+		len(allEntries), workerCount,
+		utils.CalculateTotalTimeToString(maxLatency, workerCount, len(allEntries)))
 
-	// 启动工作协程
-	for i := 0; i < workerCount; i++ {
-		go func(entryChan <-chan Entry, resultChan chan<- Entry, processChan chan<- int, maxLatency time.Duration) {
-			for entry := range entryChan {
-				valid, err := ValidateURL(entry.URL, maxLatency)
-				if valid && err == nil {
-					resultChan <- entry
-				}
-				processChan <- 1
-			}
-		}(tasks, results, process, maxLatency)
-	}
+	// 重置进度计数
+	processLock.Lock()
+	processCount = 0
+	totalCount = len(allEntries)
+	processLock.Unlock()
 
-	// 发送任务
-	go func() {
-		for _, entry := range allEntries {
-			tasks <- entry
-		}
-		close(tasks)
-	}()
-
-	// 收集结果
-	go func() {
-		for entry := range results {
-			validEntries = append(validEntries, entry)
-		}
-		done <- true
-	}()
-
-	// 收集进度
+	// 启动进度收集 goroutine
 	go func() {
 		for range process {
 			processLock.Lock()
@@ -78,40 +110,37 @@ func ValidateAndUnique(allEntries []Entry, maxLatency time.Duration, workerCount
 		}
 	}()
 
-	// 设置超时(此处设置的是未验证完成也返回结果
-	//timeout := time.After(maxLatency * time.Millisecond)
+	// 启动工作协程
+	go startWorkers(allEntries, workerCount, maxLatency, tasks, results, process, &wg)
 
-	var finalValidEntries []Entry
-	select {
-	case <-done:
-		// 在验证完成后进行去重
-		urlMap := make(map[string]Entry)
-		for _, entry := range validEntries {
-			urlMap[entry.URL] = entry
-		}
-		for _, entry := range urlMap {
-			finalValidEntries = append(finalValidEntries, entry)
-		}
-		fmt.Printf("验证完成，原始链接 %d 个，验证通过 %d 个，去重后有效链接 %d 个\n",
-			len(allEntries), len(validEntries), len(finalValidEntries))
+	// 发送任务
+	go sendTasks(allEntries, tasks)
 
-		/*
-			case <-timeout:
-				// 超时时也进行去重
-				urlMap := make(map[string]Entry)
-				for _, entry := range validEntries {
-					urlMap[entry.URL] = entry
-				}
-				for _, entry := range urlMap {
-					finalValidEntries = append(finalValidEntries, entry)
-				}
-				fmt.Printf("验证超时，原始链接 %d 个，验证通过 %d 个，去重后有效链接 %d 个\n",
-					len(allEntries), len(validEntries), len(finalValidEntries))
-		*/
+	// 等待所有工作协程完成
+	go func() {
+		wg.Wait()
+		close(process) // 关闭进度通道
+		close(results) // 所有工作协程完成后关闭 results 通道
+	}()
+
+	// 获取结果
+	go getResults(results, &validEntries, done)
+
+	// 等待收集结果完成
+	<-done
+	fmt.Println("验证完成！")
+
+	// 去重
+	finalValidEntries := make([]Entry, 0, len(validEntries))
+	urlMap := make(map[string]Entry)
+	for _, entry := range validEntries {
+		urlMap[entry.URL] = entry
+	}
+	for _, entry := range urlMap {
+		finalValidEntries = append(finalValidEntries, entry)
 	}
 
 	return validEntries, finalValidEntries, nil
-
 }
 
 // ValidateURLsWithLatency 使用指定的延迟阈值验证URLs
@@ -166,7 +195,7 @@ func validateM3U8Stream(url string, maxLatency time.Duration) (bool, int64) {
 		return false, 0
 	}
 
-	// 读取并解析 m3u8 内容
+	// ���取并解析 m3u8 内容
 	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return false, 0
@@ -256,10 +285,20 @@ func getDirectoryURL(url string) string {
 
 // ValidateURL 检查URL是否有效且延迟在允许范围内
 func ValidateURL(url string, maxLatency time.Duration) (bool, error) {
-	//fmt.Printf("开始验证链接: %s (最大延迟: %dms)\n,", url, maxLatency)
-
+	fmt.Printf("正在验证: %s\n", url) // 添加日志，方便调试
 	client := &http.Client{
-		Timeout: maxLatency * time.Millisecond,
+		Timeout: maxLatency * 2,
+		Transport: &http.Transport{
+			DisableKeepAlives:     true,
+			IdleConnTimeout:       maxLatency * 2,
+			ResponseHeaderTimeout: maxLatency * 2,
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return fmt.Errorf("stopped after 5 redirects")
+			}
+			return nil
+		},
 	}
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -267,25 +306,31 @@ func ValidateURL(url string, maxLatency time.Duration) (bool, error) {
 		return false, fmt.Errorf("创建请求失败: %w", err)
 	}
 
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return false, fmt.Errorf("请求失败: %w", err)
 	}
 	defer resp.Body.Close()
 
-	isValid := resp.StatusCode == http.StatusOK
-
-	// Read a small portion of the body to ensure content is accessible
-	if isValid {
-		buffer := make([]byte, 1024)
-		_, err := resp.Body.Read(buffer)
-		if err != nil && err != io.EOF {
-			isValid = false
-			return isValid, fmt.Errorf("读取内容失败: %w", err)
-		}
+	isValid := resp.StatusCode >= 200 && resp.StatusCode < 300
+	if !isValid {
+		return false, nil
 	}
 
-	return isValid, nil
+	buffer := make([]byte, 1024)
+	n, err := resp.Body.Read(buffer)
+	if err != nil && err != io.EOF {
+		return false, fmt.Errorf("读取内容失败: %w", err)
+	}
+
+	if n == 0 {
+		return false, nil
+	}
+
+	fmt.Printf("验证完成: %s\n", url) // 添加日志，方便调试
+	return true, nil
 }
 func checkWithFFprobe(url string, maxLatency time.Duration) (bool, error) {
 	// Create a context with timeout based on the maxLatency
@@ -320,5 +365,5 @@ func GetProcess() float64 {
 	if totalCount == 0 {
 		return 0
 	}
-	return float64(processCount) / float64(totalCount)
+	return float64(processCount) / float64(totalCount) * 100
 }

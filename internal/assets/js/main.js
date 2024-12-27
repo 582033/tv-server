@@ -205,6 +205,27 @@ document.addEventListener('DOMContentLoaded', function() {
         // 获取延迟设置
         const latency = parseInt(document.getElementById('latencyRange').value);
 
+        // 开始轮询进度
+        let progressInterval = setInterval(() => {
+            fetch('/api/process')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const progress = data.process;
+                        progressBar.style.width = `${progress}%`;
+                        progressText.textContent = `${progress.toFixed(1)}%`;
+                        
+                        // 如果进度达到100%，停止轮询
+                        if (progress >= 100) {
+                            clearInterval(progressInterval);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('获取进度失败:', error);
+                });
+        }, 1000); // 每秒更新一次进度
+
         // 发送请求到后端
         fetch('/api/validate', {
             method: 'POST',
@@ -312,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
     fileUpload.addEventListener('change', handleFileUpload);
 });
 
-// 添加滑块更新函数
+// 添加滑块更新��数
 function updateLatencyValue() {
     const value = document.getElementById('latencyRange').value;
     document.getElementById('latencyValue').textContent = value;
@@ -430,7 +451,7 @@ function handleFileUpload(event) {
         // showResult('error', error.message || '上传失败，请稍后重试');
     })
     .finally(() => {
-        // 清理文件输入但保留文件名显示
+        // 清理文件输入但保留文��名显示
         event.target.value = '';
         // 隐藏进度条
         setTimeout(() => {

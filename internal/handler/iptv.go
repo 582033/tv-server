@@ -248,6 +248,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/iptv.m3u", HandleM3U)
 	r.POST("/api/validate", HandleValidate)
 	r.POST("/api/upload", HandleUpload) // 添加上传路由
+	r.GET("/api/process", HandleProcess)
 }
 
 func saveEntries(c *gin.Context, entries []m3u.Entry) error {

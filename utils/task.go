@@ -11,7 +11,11 @@ import (
 // - concurrentTasks 并发任务数量
 // - totalLinks 总的链接数量
 func CalculateTotalTimeToString(timeoutPerLink time.Duration, concurrentTasks int, totalLinks int) string {
-	batchCount := (totalLinks + concurrentTasks - 1) / concurrentTasks // 向上取整，处理余数
+	if concurrentTasks <= 0 {
+		concurrentTasks = 1
+	}
+
+	batchCount := (totalLinks + concurrentTasks - 1) / concurrentTasks
 	totalTime := time.Duration(batchCount) * timeoutPerLink
 	fmt.Println("batchCount:", batchCount)
 	fmt.Println("totalTime:", totalTime)

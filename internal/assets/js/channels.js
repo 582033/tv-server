@@ -182,6 +182,7 @@ class ChannelManager {
         // 创建进度条并插入到验证按钮之前
         const progressArea = this.createProgressBar(modalBody, verifyBtn);
         const progressBar = progressArea.querySelector('.progress-bar');
+        const progressText = progressArea.querySelector('.progress-text');
 
         // 禁用验证按钮
         verifyBtn.disabled = true;
@@ -191,13 +192,32 @@ class ChannelManager {
             // 获取延迟设置
             const latency = parseInt(document.getElementById('toleranceSlider').value) || 1000;
 
-            // 先发送验证请求并等待响应
-            console.log('开始发送验证请求...');
-            const validateResponse = await fetch('/api/channel/validate', {
+            // 开始轮询进度
+            let progressInterval = setInterval(() => {
+                fetch('/api/process')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const progress = data.process;
+                            progressBar.style.width = `${progress}%`;
+                            progressText.textContent = `${progress.toFixed(1)}%`;
+                            
+                            // 如果进度达到100%，停止轮询
+                            if (progress >= 100) {
+                                clearInterval(progressInterval);
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取进度失败:', error);
+                    });
+            }, 1000); // 每秒更新一次进度
+
+            // 发送验证请求
+            const response = await fetch('/api/channel/validate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json'
                 },
                 body: JSON.stringify({
                     channelNames: Array.from(this.selectedChannels),
@@ -205,65 +225,43 @@ class ChannelManager {
                 })
             });
 
-            if (!validateResponse.ok) {
-                throw new Error(`验证请求失败: ${validateResponse.status}`);
-            }
+            const result = await response.json();
+            
+            // 创建结果显示区域
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `alert ${result.success ? 'alert-success' : 'alert-danger'} mt-3`;
+            
+            if (result.success) {
+                resultDiv.innerHTML = `
+                    原始链接：${result.stats.total} 个<br>
+                    验证通过：${result.stats.unique} 个<br>
+                    有效链接：${result.stats.valid} 个<br>`;
 
-            console.log('验证请求已发送，开始轮询进度...');
+                //如果有效连接大于0，则显示合并后的M3U文件链接
 
-            // 开始轮询进度，直到收到100%或超时
-            let startTime = Date.now();
-            let timeout = 5 * 60 * 1000; // 5分钟超时
-            let lastProgress = 0;
-
-            while (true) {
-                const response = await fetch('/api/process');
-                const data = await response.json();
-                
-                if (!data.success) {
-                    console.error('进度查询失败:', data);
-                } else {
-                    const progress = data.process;
-                    console.log('当前进度:', progress, '时间:', new Date().toLocaleTimeString());
-                    
-                    if (progress !== lastProgress) {
-                        // 更新进度条
-                        this.updateProgressBar(progressBar, progress);
-                        lastProgress = progress;
-                    }
-                    
-                    // 检测进度是否到达100%
-                    if (progress >= 100) {
-                        console.log('进度达到100%，结束轮询');
-                        break;
-                    }
+                if (result.stats.valid > 0) {
+                    resultDiv.innerHTML += `
+    您可以通过以下地址访问合并后的 M3U 文件：
+    <a href="${result.m3uLink}" target="_blank">${result.m3uLink}</a> `;
                 }
-
-                // 检查是否超时
-                if (Date.now() - startTime > timeout) {
-                    console.error('验证超时');
-                    throw new Error('验证超时，请稍后重试');
-                }
-
-                // 等待1秒后继续轮询
-                await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+                resultDiv.textContent = result.message || '验证失败';
             }
-
-            // 获取最终的验证结果
-            const validateResult = await validateResponse.json();
-            console.log('验证完成，结果:', validateResult);
-
-            // 显示结果
-            this.showValidationResult(modalBody, validateResult);
+            
+            modalBody.appendChild(resultDiv);
         } catch (error) {
             console.error('验证过程出错:', error);
-            this.showValidationResult(modalBody, {
-                success: false,
-                message: error.message || '验证请求失败，请稍后重试'
-            });
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'alert alert-danger mt-3';
+            errorDiv.textContent = error.message || '验证请求失败，请稍后重试';
+            modalBody.appendChild(errorDiv);
         } finally {
             verifyBtn.disabled = false;
             verifyBtn.textContent = '验证';
+            //清除进度条
+            progressArea.remove();
+            //清除轮询
+            clearInterval(progressInterval);
         }
     }
 
@@ -271,30 +269,93 @@ class ChannelManager {
     createProgressBar(container, verifyBtn) {
         const progressArea = document.createElement('div');
         progressArea.className = 'progress mb-3';
-        progressArea.innerHTML = `
-            <div class="progress-bar" role="progressbar" style="width: 0%">
-                <span class="progress-text">0%</span>
-            </div>
-        `;
+        progressArea.style.height = '20px';
+        progressArea.style.position = 'relative';
+        
+        const progressBar = document.createElement('div');
+        progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-primary';
+        progressBar.setAttribute('role', 'progressbar');
+        progressBar.style.width = '0%';
+        
+        const progressText = document.createElement('span');
+        progressText.className = 'progress-text';
+        progressText.style.position = 'absolute';
+        progressText.style.left = '50%';
+        progressText.style.top = '50%';
+        progressText.style.transform = 'translate(-50%, -50%)';
+        progressText.style.color = '#fff';
+        progressText.style.zIndex = '1';
+        progressText.textContent = '0%';
+        
+        progressArea.appendChild(progressBar);
+        progressArea.appendChild(progressText);
         container.insertBefore(progressArea, verifyBtn);
+        
         return progressArea;
     }
 
     // 更新进度条
-    updateProgressBar(progressBar, progress) {
-        progressBar.style.width = `${progress}%`;
-        progressBar.querySelector('.progress-text').textContent = `${progress.toFixed(1)}%`;
+    updateProgressBar(progressArea, progress) {
+        console.log('开始更新进度条，当前进度值:', progress);
+        
+        if (!progressArea) {
+            console.error('进度条容器不存在');
+            return;
+        }
+
+        // 获取进度条和文本元素
+        const progressBar = progressArea.querySelector('.progress-bar');
+        const progressText = progressArea.querySelector('.progress-text');
+
+        if (!progressBar || !progressText) {
+            console.error('找不到进度条或文本元素:', {
+                progressBar: !!progressBar,
+                progressText: !!progressText
+            });
+            return;
+        }
+
+        // 确保进度是数字
+        const progressValue = parseFloat(progress);
+        if (isNaN(progressValue)) {
+            console.error('进度值无效:', progress);
+            return;
+        }
+
+        console.log('更新前状态:', {
+            width: progressBar.style.width,
+            text: progressText.textContent
+        });
+
+        // 更新进度条宽度
+        const widthValue = progressValue + '%';
+        progressBar.style.width = widthValue;
+        
+        // 更新文本
+        const textValue = progressValue.toFixed(1) + '%';
+        progressText.textContent = textValue;
+
+        console.log('更新后状态:', {
+            width: progressBar.style.width,
+            text: progressText.textContent
+        });
     }
 
     // 显示验证结果
     showValidationResult(container, result) {
         const resultDiv = document.createElement('div');
-        resultDiv.className = 'alert alert-success mt-3';
-        resultDiv.innerHTML = `
-            验证完成<br>
-            验证频道：${result.stats.total} 个<br>
-            验证通过：${result.stats.valid} 个
-        `;
+        resultDiv.className = `alert ${result.success ? 'alert-success' : 'alert-danger'} mt-3`;
+        
+        if (result.success && result.stats) {
+            resultDiv.innerHTML = `
+                验证完成<br>
+                验证频道：${result.stats.total || 0} 个<br>
+                验证通过：${result.stats.valid || 0} 个
+            `;
+        } else {
+            resultDiv.textContent = result.message || '验证失败';
+        }
+        
         container.appendChild(resultDiv);
     }
 }

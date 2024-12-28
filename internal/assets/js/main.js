@@ -260,13 +260,14 @@ document.addEventListener('DOMContentLoaded', function() {
             progressArea.classList.add('d-none');
         })
         .catch(error => {
-            showResult('error', '验证请求失败，请稍后重试');
+            showResult('error', '验证��求失败，请稍后重试');
             validateBtn.disabled = false;
             validateBtnText.textContent = '验证';  
             validateBtnText.classList.remove('d-none');
             validateSpinner.classList.add('d-none');
             progressArea.classList.add('d-none');
-        });
+        })
+        .finally(() => clearInterval(progressInterval));
     }
 
     // 事件监听
@@ -374,7 +375,7 @@ function handleFileUpload(event) {
     const progressBar = uploadProgress.querySelector('.progress-bar');
     const validateBtn = document.getElementById('validateBtn');
     
-    // 更新按钮文本，不显示文件图标
+    // 更新按钮文本，不显示文件图���
     uploadText.innerHTML = `正在处理: ${file.name}`;
     uploadProgress.classList.remove('d-none');
     uploadLabel.classList.add('disabled');

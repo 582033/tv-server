@@ -21,8 +21,13 @@ func initDB() {
 	clientOnce.Do(func() {
 		cfg := core.GetConfig()
 
-		// 使用配置文件中的MongoDB连接信息
-		uri := cfg.MongoDB.URI
+		// 构建 MongoDB 连接字符串
+		uri := fmt.Sprintf("mongodb://%s:%s@%s:%d",
+			cfg.MongoDB.Username,
+			cfg.MongoDB.Password,
+			cfg.MongoDB.Host,
+			cfg.MongoDB.Port,
+		)
 		clientOptions := options.Client().ApplyURI(uri)
 
 		// 连接到 MongoDB

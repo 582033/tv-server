@@ -10,16 +10,15 @@ import (
 // Config 配置结构体
 type Config struct {
 	MongoDB struct {
-		URI      string `json:"uri"`
+		Host     string `json:"host"`
+		Port     int    `json:"port"`
+		Username string `json:"username"`
+		Password string `json:"password"`
 		Database string `json:"database"`
 	} `json:"mongodb"`
 	Server struct {
 		Port int `json:"port"`
 	} `json:"server"`
-	Cache struct {
-		Dir  string `json:"dir"`
-		File string `json:"file"`
-	} `json:"cache"`
 }
 
 var (

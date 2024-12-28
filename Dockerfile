@@ -32,8 +32,6 @@ RUN mkdir -p /app/cache
 
 # 从构建阶段复制二进制文件
 COPY --from=builder /app/server .
-# 复制静态文件
-COPY --from=builder /app/static ./static
 
 # 设置环境变量
 ENV GIN_MODE=release

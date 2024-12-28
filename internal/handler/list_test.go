@@ -2,10 +2,9 @@ package handler
 
 import (
 	"testing"
-
-	"github.com/gin-gonic/gin"
+	"tv-server/utils/core"
 )
 
 func TestList(t *testing.T) {
-	List(&gin.Context{})
+	List(core.NewContext())
 }

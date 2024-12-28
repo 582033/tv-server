@@ -1,0 +1,12 @@
+{
+    "server": {
+        "port": 10000
+    },
+    "mongodb": {
+        "host": "mongo",
+        "port": 27017,
+        "username": "root",
+        "password": "123456",
+        "database": "tv_server"
+    }
+} 

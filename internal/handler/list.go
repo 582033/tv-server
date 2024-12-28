@@ -7,11 +7,10 @@ import (
 	"tv-server/internal/logic/m3u"
 	"tv-server/internal/model/mongodb"
 	"tv-server/utils/cache"
-
-	"github.com/gin-gonic/gin"
+	"tv-server/utils/core"
 )
 
-func List(c *gin.Context) {
+func List(c *core.Context) {
 	filter := &mongodb.QueryFilter{
 		ChannelNameList: []mongodb.Name{},
 	}

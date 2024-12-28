@@ -3,8 +3,8 @@ package mongodb
 import (
 	"fmt"
 	"time"
+	"tv-server/utils/core"
 
-	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -37,7 +37,7 @@ type QueryFilter struct {
 	ChannelNameList []Name
 }
 
-func (ms *MediaStream) Save(c *gin.Context) error {
+func (ms *MediaStream) Save(ctx *core.Context) error {
 	if ms == nil {
 		return nil
 	}
@@ -45,7 +45,7 @@ func (ms *MediaStream) Save(c *gin.Context) error {
 	ms.CreatedAt = now
 	ms.UpdatedAt = now
 	collection := ms.Collection()
-	_, err := collection.InsertOne(c, ms)
+	_, err := collection.InsertOne(ctx.StdCtx, ms)
 	return err
 }
 
@@ -60,25 +60,25 @@ func (q QueryFilter) ToBson() bson.M {
 	return filter
 }
 
-func (filter *QueryFilter) GetList(c *gin.Context) ([]*MediaStream, error) {
+func (filter *QueryFilter) GetList(ctx *core.Context) ([]*MediaStream, error) {
 	//选择collection
 	collection := (&MediaStream{}).Collection()
 
-	cursor, err := collection.Find(c, filter.ToBson())
+	cursor, err := collection.Find(ctx.StdCtx, filter.ToBson())
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(c)
+	defer cursor.Close(ctx.StdCtx)
 
 	var msList []*MediaStream
-	if err := cursor.All(c, &msList); err != nil {
+	if err := cursor.All(ctx.StdCtx, &msList); err != nil {
 		return nil, err
 	}
 
 	return msList, nil
 }
 
-func BatchSave(c *gin.Context, msList []*MediaStream) error {
+func BatchSave(ctx *core.Context, msList []*MediaStream) error {
 	if len(msList) == 0 {
 		return nil
 	}
@@ -122,7 +122,7 @@ func BatchSave(c *gin.Context, msList []*MediaStream) error {
 				},
 			}
 
-			// 构造批量操作模型，设置 upsert 为 true，表示数据不存在时插入新记录
+			// 构造批量操作模型，设置 upsert 为 true，���示数据不存在时插入新记录
 			operations = append(operations, mongo.NewUpdateOneModel().
 				SetFilter(filter).
 				SetUpdate(update).
@@ -131,7 +131,7 @@ func BatchSave(c *gin.Context, msList []*MediaStream) error {
 
 		// 执行 BulkWrite 操作
 		if len(operations) > 0 {
-			_, err := collection.BulkWrite(c, operations, options.BulkWrite().SetOrdered(false)) // 设置 SetOrdered(false) 批量操作不按顺序
+			_, err := collection.BulkWrite(ctx.StdCtx, operations, options.BulkWrite().SetOrdered(false)) // 设置 SetOrdered(false) 批量操作不按顺序
 			if err != nil {
 				fmt.Println("批量写入失败:", err)
 				return err
@@ -144,10 +144,10 @@ func BatchSave(c *gin.Context, msList []*MediaStream) error {
 }
 
 // 查出所有的distinct ChannelName
-func (filter *QueryFilter) GetAllChannel(c *gin.Context) ([]Name, error) {
+func (filter *QueryFilter) GetAllChannel(ctx *core.Context) ([]Name, error) {
 	collection := (&MediaStream{}).Collection()
 	//拼接条件
-	cursor, err := collection.Aggregate(c, []bson.M{
+	cursor, err := collection.Aggregate(ctx.StdCtx, []bson.M{
 		{"$match": filter.ToBson()},
 		{"$group": bson.M{"_id": "$channelName"}},
 		{"$sort": bson.M{"channelName": 1}},
@@ -155,10 +155,10 @@ func (filter *QueryFilter) GetAllChannel(c *gin.Context) ([]Name, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(c)
+	defer cursor.Close(ctx.StdCtx)
 
 	var channelNameList []Name
-	for cursor.Next(c) {
+	for cursor.Next(ctx.StdCtx) {
 		var result bson.M
 		if err := cursor.Decode(&result); err != nil {
 			return nil, err
@@ -170,13 +170,13 @@ func (filter *QueryFilter) GetAllChannel(c *gin.Context) ([]Name, error) {
 }
 
 // GetRecordNums 获取频道记录数
-func (f *QueryFilter) GetRecordNums(c *gin.Context) (map[Name]int64, error) {
+func (f *QueryFilter) GetRecordNums(ctx *core.Context) (map[Name]int64, error) {
 	result := make(map[Name]int64)
 
 	// 按照原始顺序获取记录数
 	for _, channelName := range f.ChannelNameList {
 		collection := (&MediaStream{}).Collection()
-		count, err := collection.CountDocuments(c, bson.M{"channelName": channelName})
+		count, err := collection.CountDocuments(ctx.StdCtx, bson.M{"channelName": channelName})
 		if err != nil {
 			return nil, err
 		}

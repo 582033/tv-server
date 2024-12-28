@@ -1,35 +1,40 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
-	"time"
 
 	"tv-server/internal/router"
 	"tv-server/utils/cache"
+	"tv-server/utils/core"
 )
 
 func main() {
-	// 初始化缓存目录
-	if err := cache.Init(); err != nil {
-		log.Fatalf("Failed to create cache directory: %v", err)
+	// 定义命令行参数
+	configPath := flag.String("c", "config/dev.json", "配置文件路径")
+	flag.Parse()
+
+	// 加载配置
+	if err := core.LoadConfig(*configPath); err != nil {
+		log.Fatalf("加载配置失败: %v", err)
 	}
 
-	// 启动定期清理缓存的goroutine
-	go func() {
-		ticker := time.NewTicker(1 * time.Hour) // 每小时检查一次
-		defer ticker.Stop()
+	// 获取配置
+	cfg := core.GetConfig()
 
-		for range ticker.C {
-			cache.Cleanup()
-		}
-	}()
+	// 初始化缓存目录
+	if err := cache.Init(); err != nil {
+		log.Fatalf("初始化缓存失败: %v", err)
+	}
 
-	// 输出缓存文件位置
-	log.Printf("Cache file location: %s", cache.CacheFile)
-
-	// 设置并启动路由
+	// 创建路由
 	r := router.NewRouter()
-	if err := r.Run(":8080"); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+
+	// 启动服务器
+	addr := fmt.Sprintf(":%d", cfg.Server.Port)
+	log.Printf("服务器启动在 http://0.0.0.0%s", addr)
+	if err := r.Run(addr); err != nil {
+		log.Fatalf("启动服务器失败: %v", err)
 	}
 }

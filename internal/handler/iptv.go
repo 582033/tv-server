@@ -11,6 +11,7 @@ import (
 	"tv-server/internal/logic/m3u"
 	db "tv-server/internal/model/mongodb"
 	"tv-server/utils/cache"
+	"tv-server/utils/core"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -57,7 +58,7 @@ var (
 
 // HandleProcess 获取验证进度
 // ** 需要先触发验证，在请求进度才能从0开始，否则可能获取到的进度是100
-func HandleProcess(c *gin.Context) {
+func HandleProcess(c *core.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "获取进度成功",
@@ -85,7 +86,7 @@ func SaveValidatedEntries(entries []m3u.Entry) error {
 }
 
 // HandleValidate 处理验证请求
-func HandleValidate(c *gin.Context) {
+func HandleValidate(c *core.Context) {
 	var req ValidateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ValidateResponse{
@@ -178,7 +179,7 @@ func HandleValidate(c *gin.Context) {
 }
 
 // 返回缓存的M3U文件
-func HandleM3U(c *gin.Context) {
+func HandleM3U(c *core.Context) {
 	if _, err := os.Stat(cache.CacheFile); os.IsNotExist(err) {
 		c.String(http.StatusNotFound, "No M3U file available. Please validate M3U URLs first.")
 		return
@@ -190,7 +191,7 @@ func HandleM3U(c *gin.Context) {
 }
 
 // HandleUpload 处理文件上传
-func HandleUpload(c *gin.Context) {
+func HandleUpload(c *core.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, UploadResponse{
@@ -244,15 +245,7 @@ func HandleUpload(c *gin.Context) {
 	})
 }
 
-// 添加新的路由处理函数
-func RegisterRoutes(r *gin.Engine) {
-	r.GET("/iptv.m3u", HandleM3U)
-	r.POST("/api/validate", HandleValidate)
-	r.POST("/api/upload", HandleUpload) // 添加上传路由
-	r.GET("/api/process", HandleProcess)
-}
-
-func saveEntries(c *gin.Context, entries []m3u.Entry) error {
+func saveEntries(ctx *core.Context, entries []m3u.Entry) error {
 	parsedEntries := m3u.ParseEntry(entries)
 	msList := make([]*db.MediaStream, 0, len(entries))
 
@@ -265,5 +258,5 @@ func saveEntries(c *gin.Context, entries []m3u.Entry) error {
 		}
 		msList = append(msList, ms)
 	}
-	return db.BatchSave(c, msList)
+	return db.BatchSave(ctx, msList)
 }

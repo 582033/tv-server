@@ -5,6 +5,7 @@ import (
 	"time"
 	"tv-server/internal/logic/m3u"
 	"tv-server/internal/model/mongodb"
+	"tv-server/utils/core"
 
 	"net/http"
 	"net/url"
@@ -19,7 +20,7 @@ type ChannelValidateRequest struct {
 }
 
 // 根据传入的频道名称获取当前频道下有多少记录,支持多频道
-func GetRecordNums(c *gin.Context) {
+func GetRecordNums(c *core.Context) {
 	channelNameList := make([]mongodb.Name, 0)
 	channelNames := c.QueryArray("channelName[]")
 	if len(channelNames) > 0 {
@@ -52,7 +53,7 @@ func GetRecordNums(c *gin.Context) {
 	})
 }
 
-func ListAllChannel(c *gin.Context) {
+func ListAllChannel(c *core.Context) {
 	filter := &mongodb.QueryFilter{}
 	channelNameList, err := filter.GetAllChannel(c)
 	if err != nil {
@@ -72,7 +73,7 @@ func ListAllChannel(c *gin.Context) {
 }
 
 // HandleChannelPage 处理频道分类页面
-func HandleChannelPage(c *gin.Context) {
+func HandleChannelPage(c *core.Context) {
 	c.HTML(200, "template/channels.html", gin.H{
 		"title":  "频道分类",
 		"active": "category",
@@ -80,7 +81,7 @@ func HandleChannelPage(c *gin.Context) {
 }
 
 // HandleChannelValidate 处理频道验证请求
-func HandleChannelValidate(c *gin.Context) {
+func HandleChannelValidate(c *core.Context) {
 	var req ChannelValidateRequest
 	// 添加请求体解析
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -126,7 +127,7 @@ func HandleChannelValidate(c *gin.Context) {
 
 	allEntries := make([]m3u.Entry, 0, len(r))
 	for _, v := range r {
-		//如果url有��个，则都需要进行验证,最终去重
+		//如果url有多个，则都需要进行验证,最终去重
 		metadata := fmt.Sprintf("#EXTINF:-1 tvg-name=\"%s\" tvg-logo=\"%s\",group-title=\"%s\",%s", v.ChannelName, v.StreamLogo, v.ChannelName, v.StreamName)
 		for _, url := range v.StreamUrl {
 			allEntries = append(allEntries, m3u.Entry{
@@ -171,5 +172,4 @@ func HandleChannelValidate(c *gin.Context) {
 		},
 		M3ULink: fmt.Sprintf("http://%s/iptv.m3u", c.Request.Host),
 	})
-
 }

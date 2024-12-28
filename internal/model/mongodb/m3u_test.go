@@ -3,6 +3,7 @@ package mongodb
 import (
 	"fmt"
 	"testing"
+	"tv-server/utils/core"
 )
 
 func TestSave(t *testing.T) {
@@ -17,13 +18,12 @@ func TestSave(t *testing.T) {
 }
 
 func TestGetList(t *testing.T) {
-	ms := &MediaStream{}
-
 	filter := QueryFilter{
 		ChannelNameList: []Name{"音乐"},
 	}
 
-	msList, err := ms.GetList(nil, filter)
+	c := core.NewContext()
+	msList, err := filter.GetList(c)
 	if err != nil {
 		t.Fatal(err)
 	}

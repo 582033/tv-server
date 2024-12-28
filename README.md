@@ -6,27 +6,30 @@
 
 
 ## 功能特点
-
 - 支持多个 M3U 播放列表合并
 - 验证 M3U 播放列表中的链接有效性
-- 自动过滤延迟高于 1000ms 的链接
+- 指定延迟速率过滤
 - 支持 IPv4 和 IPv6 地址
-- 缓存管理，自动清理过期缓存
-- 现代化的 Web 界面
-  - 支持多个链接输入
-  - 实时链接验证
-  - 进度显示
-  - 一键复制结果
-  - 响应式设计
 
-### 运行容器
+## 运行
+
+### 方式1: 编译运行
+* 复制配置文件`config/dev.json`，并修改其中的mongodb配置为你的mongodb配置
+* 编译运行
 ```
-docker run -d -p 8080:8080 tv-server
+go build -o tv-server main.go
+./tv-server -c={$configPath} //例如 ./tv-server -c ./config/dev.json
 ```
+
+### 方式2: 容器运行
+* 复制配置文件`config/dev.json`，并修改其中的mongodb配置为你的mongodb配置
+* 运行容器
+```
+docker run -d -p 8080:8080 -v {configPath}:/config/dev.json tv-server
+```
+** 注意：如果配置文件中的server.port端口项做了修改，容器内部端口也会随之修改，否则会报错。**
 
 ## todo
-* 增加源存储到数据库及管理界面
-* 增加定时校验数据库中的源
-
-#### 设想
-* db使用mongo
+* 查看数据库中的详细视频信息
+* 视频分类重命名
+** 接入AI，自动优化频道名称及查找源 **

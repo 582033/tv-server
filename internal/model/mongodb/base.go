@@ -8,7 +8,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	//"github.com/micro/go-micro/v2/config"
+
+	"tv-server/utils/core"
 )
 
 var (
@@ -18,8 +19,10 @@ var (
 
 func initDB() {
 	clientOnce.Do(func() {
-		// MongoDB 连接字符串
-		uri := "mongodb://root:123456@192.168.50.100:27017"
+		cfg := core.GetConfig()
+
+		// 使用配置文件中的MongoDB连接信息
+		uri := cfg.MongoDB.URI
 		clientOptions := options.Client().ApplyURI(uri)
 
 		// 连接到 MongoDB
@@ -37,13 +40,12 @@ func initDB() {
 			fmt.Println("Successfully connected to MongoDB")
 		}
 	})
-
-	return
 }
 
 func DB(dbName string) *mongo.Database {
 	if dbName == "" {
-		dbName = "tv-server"
+		cfg := core.GetConfig()
+		dbName = cfg.MongoDB.Database // 从配置文件获取默认数据库名
 	}
 
 	initDB()

@@ -1,6 +1,6 @@
 {
     "server": {
-        "port": 10000
+        "port": 10101
     },
     "mongodb": {
         "host": "mongo",

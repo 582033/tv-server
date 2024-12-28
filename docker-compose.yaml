@@ -8,7 +8,9 @@ services:
     image: yjiang/tv-server
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "10101:10101"
+    volumes:
+      - ./config.json:/config.json
     environment:
       - MONGO_URI=mongodb://root:123456@mongo:27017
     depends_on:

@@ -37,7 +37,7 @@ COPY --from=builder /app/server .
 ENV GIN_MODE=release
 
 # 暴露端口
-EXPOSE 8080
+EXPOSE 10101
 
 # 设置用户
 RUN adduser -D appuser
@@ -45,4 +45,4 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 # 运行应用
-CMD ["./server"]
+CMD ["./server", "-c", "/config.json"]

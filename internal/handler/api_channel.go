@@ -2,13 +2,13 @@ package handler
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
 	"time"
 	"tv-server/internal/logic/m3u"
 	"tv-server/internal/model/mongodb"
 	"tv-server/utils/core"
-
-	"net/http"
-	"net/url"
+	"tv-server/utils/msg"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,7 +20,7 @@ type ChannelValidateRequest struct {
 }
 
 // 根据传入的频道名称获取当前频道下有多少记录,支持多频道
-func GetRecordNums(c *core.Context) {
+func HandleGetRecordNums(c *core.Context) {
 	channelNameList := make([]mongodb.Name, 0)
 	channelNames := c.QueryArray("channelName[]")
 	if len(channelNames) > 0 {
@@ -53,7 +53,7 @@ func GetRecordNums(c *core.Context) {
 	})
 }
 
-func ListAllChannel(c *core.Context) {
+func HandleListAllChannel(c *core.Context) {
 	filter := &mongodb.QueryFilter{}
 	channelNameList, err := filter.GetAllChannel(c)
 	if err != nil {
@@ -62,6 +62,7 @@ func ListAllChannel(c *core.Context) {
 			"message": "获取频道列表失败",
 			"error":   err.Error(),
 		})
+		c.WebResponse(msg.CodeError, nil, err)
 		return
 	}
 
@@ -72,15 +73,7 @@ func ListAllChannel(c *core.Context) {
 	})
 }
 
-// HandleChannelPage 处理频道分类页面
-func HandleChannelPage(c *core.Context) {
-	c.HTML(200, "template/channels.html", gin.H{
-		"title":  "频道分类",
-		"active": "category",
-	})
-}
-
-// HandleChannelValidate 处理频道验证请求
+// ChannelValidate 处理频道验证请求
 func HandleChannelValidate(c *core.Context) {
 	var req ChannelValidateRequest
 	// 添加请求体解析
@@ -172,4 +165,21 @@ func HandleChannelValidate(c *core.Context) {
 		},
 		M3ULink: fmt.Sprintf("http://%s/iptv.m3u", c.Request.Host),
 	})
+}
+func ChannelDetail(c *core.Context) {
+	channelName := c.Query("channelName")
+	if channelName == "" {
+		c.WebResponse(msg.CodeBadRequest, nil, nil)
+		return
+	}
+	filter := &mongodb.QueryFilter{
+		ChannelNameList: []mongodb.Name{mongodb.Name(channelName)},
+	}
+	channelNameList, err := filter.GetList(c)
+	if err != nil {
+		c.WebResponse(msg.CodeError, nil, err)
+		return
+	}
+
+	c.WebResponse(msg.CodeOK, channelNameList, nil)
 }

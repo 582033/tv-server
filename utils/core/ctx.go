@@ -2,6 +2,9 @@ package core
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"tv-server/utils/msg"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -79,4 +82,40 @@ func WrapHandler(handler func(*Context)) gin.HandlerFunc {
 		}
 		handler(ctx)
 	}
+}
+
+// WebRender 用于渲染HTML模板
+func (c *Context) WebRender(tplPath string, data interface{}, err error) {
+	// data 从interface转为 gin.H{}
+	if data == nil {
+		data = gin.H{}
+	}
+	if err == nil {
+		c.HTML(http.StatusOK, tplPath, data)
+		c.Abort()
+		return
+	}
+	data = struct {
+		Error string `json:"error"`
+	}{Error: fmt.Sprintf("%v", err)}
+
+	c.HTML(http.StatusOK, tplPath, data)
+	c.Abort()
+	return
+}
+
+// WebResponse 用于通用返回json数据
+func (c *Context) WebResponse(msgCode int, data interface{}, err error) {
+	if err == nil {
+		c.JSON(http.StatusOK, msg.Resp(msg.CodeOK, "", data, c.GetRequestID()))
+		c.Abort()
+		return
+	}
+	data = struct {
+		Error string `json:"error"`
+	}{Error: fmt.Sprintf("%v", err)}
+
+	c.JSON(http.StatusOK, msg.Resp(msgCode, err.Error(), data, c.GetRequestID()))
+	c.Abort()
+	return
 }

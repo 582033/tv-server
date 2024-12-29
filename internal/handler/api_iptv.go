@@ -12,6 +12,7 @@ import (
 	db "tv-server/internal/model/mongodb"
 	"tv-server/utils/cache"
 	"tv-server/utils/core"
+	"tv-server/utils/msg"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -59,11 +60,11 @@ var (
 // HandleProcess 获取验证进度
 // ** 需要先触发验证，在请求进度才能从0开始，否则可能获取到的进度是100
 func HandleProcess(c *core.Context) {
-	c.JSON(http.StatusOK, gin.H{
+	c.WebResponse(msg.CodeOK, gin.H{
 		"success": true,
 		"message": "获取进度成功",
 		"process": m3u.GetProcess(),
-	})
+	}, nil)
 }
 
 // SaveValidatedEntries 保存验证后的条目到缓存文件
@@ -89,10 +90,7 @@ func SaveValidatedEntries(entries []m3u.Entry) error {
 func HandleValidate(c *core.Context) {
 	var req ValidateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ValidateResponse{
-			Success: false,
-			Message: "Invalid request",
-		})
+		c.WebResponse(msg.CodeBadRequest, nil, err)
 		return
 	}
 

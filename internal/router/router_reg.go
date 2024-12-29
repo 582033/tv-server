@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"tv-server/internal/assets"
 	"tv-server/internal/handler"
+	"tv-server/internal/pager"
 	"tv-server/utils/core"
 
 	"github.com/gin-gonic/gin"
@@ -34,9 +35,9 @@ func NewRouter() *gin.Engine {
 
 // 注册页面路由
 func registerPages(r *gin.Engine) {
-	r.GET(URLHome, core.WrapHandler(handler.HandleHome))
-	r.GET(URLWelcome, core.WrapHandler(handler.HandleHome))
-	r.GET(URLCategory, core.WrapHandler(handler.HandleChannelPage))
+	r.GET(URLHome, core.WrapHandler(pager.PageHome))
+	r.GET(URLWelcome, core.WrapHandler(pager.PageHome))
+	r.GET(URLCategory, core.WrapHandler(pager.PageChannel))
 }
 
 // 注册 API 路由
@@ -45,7 +46,7 @@ func registerAPI(r *gin.Engine) {
 	r.POST(URLValidate, core.WrapHandler(handler.HandleValidate))
 	r.POST(URLUpload, core.WrapHandler(handler.HandleUpload))
 	r.GET(URLProcess, core.WrapHandler(handler.HandleProcess))
-	r.GET(URLChannels, core.WrapHandler(handler.ListAllChannel))
-	r.GET(URLChannelRecordNum, core.WrapHandler(handler.GetRecordNums))
+	r.GET(URLChannels, core.WrapHandler(handler.HandleListAllChannel))
+	r.GET(URLChannelRecordNum, core.WrapHandler(handler.HandleGetRecordNums))
 	r.POST(URLChannelValidate, core.WrapHandler(handler.HandleChannelValidate))
 }

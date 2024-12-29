@@ -35,26 +35,26 @@ func ValidateAndUnique(allEntries []Entry, maxLatency time.Duration, workerCount
 func startWorkers(allEntries []Entry, workerCount int, maxLatency time.Duration, tasks <-chan Entry, results chan<- Entry, process chan<- int, wg *sync.WaitGroup) {
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
-		go func(entryChan <-chan Entry, resultChan chan<- Entry, processChan chan<- int, maxLatency time.Duration) {
+		go func() {
 			defer wg.Done()
-			for entry := range entryChan {
+			for entry := range tasks {
 				valid, err := ValidateURL(entry.URL, maxLatency)
 				if valid && err == nil {
 					select {
-					case resultChan <- entry:
+					case results <- entry:
 						// 成功发送结果
 					default:
 						// 如果通道已满，跳过
 					}
 				}
 				select {
-				case processChan <- 1:
+				case process <- 1:
 					// 成功发送进度
 				default:
 					// 如果通道已满，跳过
 				}
 			}
-		}(tasks, results, process, maxLatency)
+		}()
 	}
 }
 
@@ -119,8 +119,8 @@ func collectResults(allEntries []Entry, maxLatency time.Duration, workerCount in
 	// 等待所有工作协程完成
 	go func() {
 		wg.Wait()
-		close(process) // 关闭进度通道
 		close(results) // 所有工作协程完成后关闭 results 通道
+		close(process) // 所有工作协程完成后关闭 process 通道
 	}()
 
 	// 获取结果
@@ -195,7 +195,7 @@ func validateM3U8Stream(url string, maxLatency time.Duration) (bool, int64) {
 		return false, 0
 	}
 
-	// ���取并解析 m3u8 内容
+	// 取并解析 m3u8 内容
 	content, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return false, 0

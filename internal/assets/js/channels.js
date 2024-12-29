@@ -72,13 +72,41 @@ class ChannelManager {
         this.updateSelectionStatus();
     }
 
+    // 显示loading动画
+    showLoading() {
+        const channelList = document.getElementById('channelList');
+        if (!channelList) return;
+
+        channelList.innerHTML = `
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
+                <div class="mt-2">加载中...</div>
+            </div>
+        `;
+    }
+
     // 渲染频道列表
     async renderChannelList() {
-    try {
-        // 获取频道列表
+        try {
+            // 显示loading动画
+            this.showLoading();
+            
+            // 获取频道列表
             const channels = await this.fetchChannels();
             if (!channels.length) {
-                console.log('没有找到频道');
+                // 隐藏loading动画
+                this.hideLoading();
+                // 显示错误信息
+                const channelList = document.getElementById('channelList');
+                if (channelList) {
+                    channelList.innerHTML = `
+                        <div class="alert alert-danger m-3" role="alert">
+                            没有找到频道
+                        </div>
+                    `;
+                }
                 return;
             }
 
@@ -108,6 +136,15 @@ class ChannelManager {
             this.updateSelectionStatus();
         } catch (error) {
             console.error('渲染频道列表失败:', error);
+            // 显示错误信息
+            const channelList = document.getElementById('channelList');
+            if (channelList) {
+                channelList.innerHTML = `
+                    <div class="alert alert-danger m-3" role="alert">
+                        加载频道列表失败，请稍后重试
+                    </div>
+                `;
+            }
         }
     }
 

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -166,20 +167,27 @@ func HandleChannelValidate(c *core.Context) {
 		M3ULink: fmt.Sprintf("http://%s/iptv.m3u", c.Request.Host),
 	})
 }
-func ChannelDetail(c *core.Context) {
+func HandleChannelDetail(c *core.Context) {
 	channelName := c.Query("channelName")
-	if channelName == "" {
-		c.WebResponse(msg.CodeBadRequest, nil, nil)
+	// 添加 URL 解码
+	decodedName, err := url.QueryUnescape(channelName)
+	if err != nil {
+		c.WebResponse(msg.CodeBadRequest, nil, fmt.Errorf("invalid channel name encoding: %v", err))
 		return
 	}
+	if decodedName != "" {
+		channelName = decodedName
+	}
+	log.Println("channelName", channelName)
 	filter := &mongodb.QueryFilter{
 		ChannelNameList: []mongodb.Name{mongodb.Name(channelName)},
 	}
-	channelNameList, err := filter.GetList(c)
+	log.Println("channelName", channelName)
+	streamList, err := filter.GetList(c)
 	if err != nil {
 		c.WebResponse(msg.CodeError, nil, err)
 		return
 	}
 
-	c.WebResponse(msg.CodeOK, channelNameList, nil)
+	c.WebResponse(msg.CodeOK, streamList, nil)
 }

@@ -37,16 +37,18 @@ func NewRouter() *gin.Engine {
 func registerPages(r *gin.Engine) {
 	r.GET(URLHome, core.WrapHandler(pager.PageHome))
 	r.GET(URLWelcome, core.WrapHandler(pager.PageHome))
-	r.GET(URLCategory, core.WrapHandler(pager.PageChannel))
+	r.GET(URLChannel, core.WrapHandler(pager.PageChannel))
+	r.GET(URLChannelDetail, core.WrapHandler(pager.PageChannelDetail))
 }
 
 // 注册 API 路由
 func registerAPI(r *gin.Engine) {
-	r.GET(URLIPTV, core.WrapHandler(handler.HandleM3U))
-	r.POST(URLValidate, core.WrapHandler(handler.HandleValidate))
-	r.POST(URLUpload, core.WrapHandler(handler.HandleUpload))
-	r.GET(URLProcess, core.WrapHandler(handler.HandleProcess))
-	r.GET(URLChannels, core.WrapHandler(handler.HandleListAllChannel))
-	r.GET(URLChannelRecordNum, core.WrapHandler(handler.HandleGetRecordNums))
-	r.POST(URLChannelValidate, core.WrapHandler(handler.HandleChannelValidate))
+	r.GET(URLAPIIPTV, core.WrapHandler(handler.HandleM3U))
+	r.POST(URLAPIValidate, core.WrapHandler(handler.HandleValidate))
+	r.POST(URLAPIUpload, core.WrapHandler(handler.HandleUpload))
+	r.GET(URLAPIProcess, core.WrapHandler(handler.HandleProcess))
+	r.GET(URLAPIChannels, core.WrapHandler(handler.HandleListAllChannel))
+	r.GET(URLAPIChannelRecordNum, core.WrapHandler(handler.HandleGetRecordNums))
+	r.POST(URLAPIChannelValidate, core.WrapHandler(handler.HandleChannelValidate))
+	r.GET(URLAPIChannelDetail, core.WrapHandler(handler.HandleChannelDetail))
 }

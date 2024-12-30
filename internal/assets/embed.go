@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"tv-server/utils/templates"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,7 +21,10 @@ var TemplateFS embed.FS
 
 func LoadHTMLFromEmbedFS(engine *gin.Engine, embedFS embed.FS, pattern string) {
 	root := template.New("")
+	// 添加模板函数
+	root.Funcs(templates.FuncMap)
 	tmpl := template.Must(root, loadAndAddToRoot(engine.FuncMap, root, embedFS, pattern))
+
 	engine.SetHTMLTemplate(tmpl)
 }
 

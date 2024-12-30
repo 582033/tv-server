@@ -13,3 +13,12 @@ func PageChannel(c *core.Context) {
 		"active": "category",
 	}, nil)
 }
+
+func PageChannelDetail(c *core.Context) {
+	channelName := c.Param("channel_name")
+	c.WebRender("template/channel_detail.html", gin.H{
+		"title":       "频道详情",
+		"active":      "category",
+		"channelName": channelName,
+	}, nil)
+}

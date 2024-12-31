@@ -9,7 +9,8 @@ import (
 	"time"
 
 	"tv-server/internal/logic/m3u"
-	db "tv-server/internal/model/mongodb"
+	"tv-server/internal/model"
+	"tv-server/internal/model/types"
 	"tv-server/utils/cache"
 	"tv-server/utils/core"
 	"tv-server/utils/msg"
@@ -245,10 +246,10 @@ func HandleUpload(c *core.Context) {
 
 func saveEntries(ctx *core.Context, entries []m3u.Entry) error {
 	parsedEntries := m3u.ParseEntry(entries)
-	msList := make([]*db.MediaStream, 0, len(entries))
+	msList := make([]*types.MediaStream, 0, len(entries))
 
 	for _, parsedEntry := range parsedEntries {
-		ms := &db.MediaStream{
+		ms := &types.MediaStream{
 			StreamName:  parsedEntry.Title,
 			ChannelName: parsedEntry.Channel,
 			StreamUrl:   []string{parsedEntry.URL},
@@ -256,5 +257,7 @@ func saveEntries(ctx *core.Context, entries []m3u.Entry) error {
 		}
 		msList = append(msList, ms)
 	}
-	return db.BatchSave(ctx, msList)
+
+	db := model.GetDB()
+	return db.M3U().BatchSave(ctx, msList)
 }

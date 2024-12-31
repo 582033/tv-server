@@ -2,11 +2,17 @@
     "server": {
         "port": 10101
     },
-    "mongodb": {
-        "host": "mongo",
-        "port": 27017,
-        "username": "root",
-        "password": "123456",
-        "database": "tv_server"
+    "db": {
+        "type": "mongodb",
+        "sqlite": {
+            "pabth": "./data/tv_server.db"
+        },
+        "mongodb": {
+            "host": "mongo",
+            "port": 27017,
+            "username": "root",
+            "password": "123456",
+            "database": "tv_server"
+        }
     }
-} 
+}

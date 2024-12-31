@@ -1,305 +1,86 @@
-.plyr {
-    width: 100%;
-    height: 100%;
-    aspect-ratio: 16/9;
-    max-height: 85vh;
-}
-
-.modal-dialog-player {
-    margin: 1.75rem auto;
-}
-
-.modal-header {
-    padding: 5px;
-}
-
-.modal-footer {
-    padding: 0px;
-}
-.modal-body {
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #f8f9fa;
-}
-
-#player {
-    width: 100%;
-    height: 100%;
-    max-height: 85vh;
-    object-fit: contain;
-    background-color: #000;
-}
-
-.plyr--video {
-    height: 100%;
-    background: #000;
-}
-
-.plyr__video-wrapper {
-    height: 100%;
-}
-
-.plyr video {
-    height: 100%;
-    object-fit: contain;
-}
-
-.latency-info {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    z-index: 5;
-}
-
-/* 列表样式 */
-.stream-list {
-    max-height: calc(100vh - 240px);
-    overflow-y: auto;
-}
-
-.list-group-item {
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border-left: 3px solid transparent;
-    padding: 0.5rem 1rem;
-}
-
-.list-group-item:hover {
-    background-color: #f8f9fa;
-    border-left-color: #0d6efd;
-}
-
-.list-group-item.active {
-    background-color: #e9ecef;
-    border-left-color: #0d6efd;
-    color: #333;
-}
-
-.stream-item {
-    display: flex;
-    align-items: center;
-}
-
-.stream-logo {
-    width: 32px;
-    height: 32px;
-    margin-right: 0.75rem;
-    flex-shrink: 0;
-}
-
-.stream-logo img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 4px;
-}
-
-.stream-info {
-    flex-grow: 1;
-    min-width: 0;
-}
-
-.stream-name {
-    margin: 0;
-    font-size: 0.875rem;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.stream-time {
-    font-size: 0.75rem;
-    color: #6c757d;
-    margin-top: 0.125rem;
-}
-
-/* 自定义滚动条样式 */
-.stream-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.stream-list::-webkit-scrollbar-track {
-    background: #f1f1f1;
-}
-
-.stream-list::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 3px;
-}
-
-.stream-list::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
-
-/* 频道标题样式 */
-.channel-header {
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.channel-title {
-    color: #333;
-    font-weight: 600;
-}
-
+/* 播放器容器样式 */
 .player-container {
     position: relative;
     width: 100%;
-    height: calc(100vh - 140px);
     background: #000;
     border-radius: 4px;
     overflow: hidden;
 }
 
-.player-container video {
+/* Video.js 播放器样式 */
+.video-js {
+    width: 100% !important;
+    height: 100% !important;
+    position: relative !important;
+    aspect-ratio: 16/9;
+}
+
+.video-js.vjs-fluid {
+    padding-top: 56.25% !important; /* 16:9 比例 */
+}
+
+.video-js .vjs-tech {
+    position: absolute !important;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    object-fit: contain;
 }
 
-.channel-logo img {
-    width: 120px;
-    height: 120px;
-    object-fit: cover;
-    border-radius: 10px;
-}
-
-.channel-name {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #333;
-}
-
-/* 播放器控制栏样式 */
-.player-controls {
-    background-color: #f8f9fa;
-    border-radius: 4px;
-    padding: 0.5rem;
-}
-
-.progress {
-    height: 4px;
-    background-color: #e9ecef;
-    cursor: pointer;
-    border-radius: 2px;
-}
-
-.progress-bar {
-    background-color: #0d6efd;
-    transition: width 0.1s linear;
-}
-
-.time, .time-separator {
-    font-size: 0.875rem;
-    color: #6c757d;
-}
-
-.volume-control {
-    display: flex;
-    align-items: center;
-}
-
-.volume-slider {
-    width: 60px;
-    height: 4px;
-    margin-top: 0;
-    -webkit-appearance: none;
-    background-color: #e9ecef;
-    border-radius: 2px;
-    outline: none;
-}
-
-.volume-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 10px;
-    height: 10px;
-    background-color: #0d6efd;
-    border-radius: 50%;
-    cursor: pointer;
-    margin-top: -3px;
-}
-
-.volume-slider::-moz-range-thumb {
-    width: 10px;
-    height: 10px;
-    background-color: #0d6efd;
+/* 自定义 Video.js 主题 */
+.video-js .vjs-big-play-button {
+    background-color: rgba(0, 0, 0, 0.45);
     border: none;
     border-radius: 50%;
-    cursor: pointer;
+    width: 3em;
+    height: 3em;
+    line-height: 3em;
+    left: 50%;
+    top: 50%;
+    margin-left: -1.5em;
+    margin-top: -1.5em;
 }
 
-/* 控制按钮样式 */
-.player-controls .btn {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-    border-radius: 4px;
-    background-color: transparent;
-    border: 1px solid #dee2e6;
-    color: #495057;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
+.video-js:hover .vjs-big-play-button,
+.video-js .vjs-big-play-button:focus {
+    background-color: rgba(0, 0, 0, 0.7);
 }
 
-.player-controls .btn:hover {
-    background-color: #e9ecef;
-    border-color: #ced4da;
+.video-js .vjs-control-bar {
+    background-color: rgba(0, 0, 0, 0.7);
 }
 
-.player-controls .btn i {
-    font-size: 1rem;
+.video-js .vjs-slider {
+    background-color: rgba(255, 255, 255, 0.3);
 }
 
-/* 确保控制栏始终显示在底部 */
-.modal-content {
-    display: flex;
-    flex-direction: column;
+.video-js .vjs-play-progress {
+    background-color: #0d6efd;
+}
+
+.video-js .vjs-volume-panel {
+    margin-right: 0.5em;
+}
+
+.video-js .vjs-volume-control {
+    width: 5em;
+}
+
+/* 全屏模式样式 */
+.video-js.vjs-fullscreen {
+    padding-top: 0 !important;
+}
+
+.video-js.vjs-fullscreen .vjs-tech {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    width: 100%;
     height: 100%;
 }
 
-.modal-body {
-    flex: 1;
-    overflow: hidden;
-}
-
-.player-controls {
-    flex-shrink: 0;
-}
-
-/* 播放器样式优化 */
-.plyr--video {
-    height: 100%;
-    background: #000;
-}
-
-.plyr__video-wrapper {
-    height: 100%;
-}
-
-.plyr video {
-    height: 100%;
-    object-fit: contain;
-}
-
-.latency-info {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    z-index: 5;
+.video-js.vjs-fullscreen .vjs-control-bar {
+    bottom: 0;
 }
 
 /* 列表样式 */
@@ -312,7 +93,7 @@
     cursor: pointer;
     transition: all 0.2s ease;
     border-left: 3px solid transparent;
-    padding: 0.5rem 1rem;
+    padding: 0.75rem 1rem;
 }
 
 .list-group-item:hover {
@@ -326,28 +107,44 @@
     color: #333;
 }
 
+/* 流项目样式 */
 .stream-item {
     display: flex;
     align-items: center;
 }
 
 .stream-logo {
-    width: 32px;
-    height: 32px;
+    width: 80px;
+    height: 45px;
     margin-right: 0.75rem;
     flex-shrink: 0;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .stream-logo img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     border-radius: 4px;
 }
 
 .stream-info {
     flex-grow: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.stream-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
 }
 
 .stream-name {
@@ -359,10 +156,45 @@
     text-overflow: ellipsis;
 }
 
+.stream-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
 .stream-time {
     font-size: 0.75rem;
     color: #6c757d;
-    margin-top: 0.125rem;
+}
+
+.stream-latency {
+    font-size: 0.75rem;
+}
+
+/* 收藏按钮样式 */
+.favorite-btn {
+    margin-left: 0.5rem;
+    padding: 0.25rem;
+    cursor: pointer;
+    color: #6c757d;
+    transition: all 0.2s ease;
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.favorite-btn:hover {
+    color: #dc3545;
+}
+
+.favorite-btn.active {
+    color: #dc3545;
+}
+
+.favorite-btn i {
+    font-size: 1rem;
 }
 
 /* 自定义滚动条样式 */
@@ -394,7 +226,155 @@
     font-weight: 600;
 }
 
-/* 调整整体内容区域的内边距 */
+/* 延迟信息样式 */
+.stream-stats {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.stream-stats div {
+    display: flex;
+    justify-content: space-between;
+    min-width: 150px;
+}
+
+.stream-stats span {
+    margin-left: 0.5rem;
+    font-family: monospace;
+}
+
+/* 卡片样式 */
+.card {
+    height: 100%;
+    margin: 0;
+}
+
+.card-body {
+    padding: 1rem;
+    height: 100%;
+}
+
+.card-body.p-0 {
+    padding: 0 !important;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 内容区域样式 */
 .content-wrapper {
     padding: 1rem 0;
+    min-height: 100vh;
+    position: relative;  /* 创建新的定位上下文 */
+}
+
+.content-wrapper .row {
+    margin: 0 -0.5rem;
+}
+
+.content-wrapper .col-md-4,
+.content-wrapper .col-md-8 {
+    padding: 0 0.5rem;
+}
+
+/* 移动端适配 */
+@media (max-width: 991px) {
+    html, body {
+        height: 100%;
+        overflow-y: visible;
+    }
+
+    .content-wrapper {
+        padding: 0;
+        height: auto;
+        overflow: visible;
+    }
+
+    .content-wrapper .row {
+        flex-direction: column !important;
+        margin: 0;
+        position: relative;
+    }
+
+    /* 播放器列样式 */
+    .content-wrapper .row > .col-md-8 {
+        order: -1 !important;
+        position: -webkit-sticky !important;
+        position: sticky !important;
+        top: 0;
+        z-index: 1000;
+        background: #000;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        max-width: 100%;
+        flex: 0 0 100%;
+    }
+
+    /* 列表列样式 */
+    .content-wrapper .row > .col-md-4 {
+        order: 1 !important;
+        padding: 0 1rem;
+        width: 100%;
+        max-width: 100%;
+        flex: 0 0 100%;
+        margin-top: 1rem;
+    }
+
+    .player-container {
+        height: 40vh;
+        margin: 0;
+        border-radius: 0;
+    }
+    
+    .video-js.vjs-fluid {
+        padding-top: 56.25% !important;
+    }
+
+    .stream-list {
+        max-height: none;
+        padding: 1rem;
+    }
+
+    .stream-logo {
+        width: 60px;
+        height: 34px;
+    }
+
+    /* 调整播放器容器的卡片样式 */
+    .content-wrapper .row > .col-md-8 .card {
+        margin: 0;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .content-wrapper .row > .col-md-8 .card-body {
+        padding: 0;
+    }
+
+    /* 调整列表容器的样式 */
+    .content-wrapper .row > .col-md-4 .card {
+        border-radius: 4px;
+        margin-top: 1rem;
+        border: none;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    /* 调整延迟信息位置 */
+    .stream-stats {
+        top: 0.5rem;
+        right: 0.5rem;
+    }
 } 

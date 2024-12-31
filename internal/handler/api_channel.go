@@ -7,7 +7,8 @@ import (
 	"net/url"
 	"time"
 	"tv-server/internal/logic/m3u"
-	"tv-server/internal/model/mongodb"
+	"tv-server/internal/model"
+	"tv-server/internal/model/types"
 	"tv-server/utils/core"
 	"tv-server/utils/msg"
 
@@ -22,8 +23,8 @@ type ChannelValidateRequest struct {
 
 // 根据传入的频道名称获取当前频道下有多少记录,支持多频道
 func HandleGetRecordNums(c *core.Context) {
-	channelNameList := make([]mongodb.Name, 0)
 	channelNames := c.QueryArray("channelName[]")
+	channelNameList := make([]string, 0)
 	if len(channelNames) > 0 {
 		for _, name := range channelNames {
 			if name != "" && name != "all" {
@@ -31,14 +32,17 @@ func HandleGetRecordNums(c *core.Context) {
 				if err != nil {
 					continue
 				}
-				channelNameList = append(channelNameList, mongodb.Name(decodedName))
+				channelNameList = append(channelNameList, decodedName)
 			}
 		}
 	}
-	filter := &mongodb.QueryFilter{
+
+	filter := &types.QueryFilter{
 		ChannelNameList: channelNameList,
 	}
-	recordNums, err := filter.GetRecordNums(c)
+
+	db := model.GetDB()
+	recordNums, err := db.M3U().GetRecordNums(c, filter)
 	if err != nil {
 		c.JSON(500, gin.H{
 			"code":    500,
@@ -47,6 +51,7 @@ func HandleGetRecordNums(c *core.Context) {
 		})
 		return
 	}
+
 	c.JSON(200, gin.H{
 		"code":    200,
 		"message": "success",
@@ -55,8 +60,9 @@ func HandleGetRecordNums(c *core.Context) {
 }
 
 func HandleListAllChannel(c *core.Context) {
-	filter := &mongodb.QueryFilter{}
-	channelNameList, err := filter.GetAllChannel(c)
+	filter := &types.QueryFilter{}
+	db := model.GetDB()
+	channelNameList, err := db.M3U().GetAllChannel(c, filter)
 	if err != nil {
 		c.JSON(500, gin.H{
 			"code":    500,
@@ -77,7 +83,6 @@ func HandleListAllChannel(c *core.Context) {
 // ChannelValidate 处理频道验证请求
 func HandleChannelValidate(c *core.Context) {
 	var req ChannelValidateRequest
-	// 添加请求体解析
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
@@ -93,24 +98,25 @@ func HandleChannelValidate(c *core.Context) {
 	}
 
 	// 从请求中获取频道名称列表
-	channelNameList := make([]mongodb.Name, 0)
+	channelNameList := make([]string, 0)
 	for _, name := range req.ChannelNames {
 		if name != "" && name != "all" {
 			decodedName, err := url.QueryUnescape(name)
 			if err != nil {
 				continue
 			}
-			channelNameList = append(channelNameList, mongodb.Name(decodedName))
+			channelNameList = append(channelNameList, decodedName)
 		}
 	}
 
 	// 创建查询过滤器
-	filter := &mongodb.QueryFilter{
+	filter := &types.QueryFilter{
 		ChannelNameList: channelNameList,
 	}
 
-	// 从MongoDB获取记录
-	r, err := filter.GetList(c)
+	// 从数据库获取记录
+	db := model.GetDB()
+	r, err := db.M3U().GetList(c, filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
@@ -121,8 +127,8 @@ func HandleChannelValidate(c *core.Context) {
 
 	allEntries := make([]m3u.Entry, 0, len(r))
 	for _, v := range r {
-		//如果url有多个，则都需要进行验证,最终去重
-		metadata := fmt.Sprintf("#EXTINF:-1 tvg-name=\"%s\" tvg-logo=\"%s\",group-title=\"%s\",%s", v.ChannelName, v.StreamLogo, v.ChannelName, v.StreamName)
+		metadata := fmt.Sprintf("#EXTINF:-1 tvg-name=\"%s\" tvg-logo=\"%s\",group-title=\"%s\",%s",
+			v.ChannelName, v.StreamLogo, v.ChannelName, v.StreamName)
 		for _, url := range v.StreamUrl {
 			allEntries = append(allEntries, m3u.Entry{
 				Metadata: metadata,
@@ -130,9 +136,8 @@ func HandleChannelValidate(c *core.Context) {
 			})
 		}
 	}
-	//req.Timeout单位是ms
+
 	timeout := time.Duration(req.Timeout) * time.Millisecond
-	//开始验证并去重
 	validEntries, finalValidEntries, err := m3u.ValidateAndUnique(allEntries, timeout, 100)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -167,9 +172,9 @@ func HandleChannelValidate(c *core.Context) {
 		M3ULink: fmt.Sprintf("http://%s/iptv.m3u", c.Request.Host),
 	})
 }
+
 func HandleChannelDetail(c *core.Context) {
 	channelName := c.Query("channelName")
-	// 添加 URL 解码
 	decodedName, err := url.QueryUnescape(channelName)
 	log.Println("decodedName", decodedName)
 	if err != nil {
@@ -179,12 +184,13 @@ func HandleChannelDetail(c *core.Context) {
 	if decodedName != "" {
 		channelName = decodedName
 	}
-	log.Println("channelName", channelName)
-	filter := &mongodb.QueryFilter{
-		ChannelNameList: []mongodb.Name{mongodb.Name(channelName)},
+
+	filter := &types.QueryFilter{
+		ChannelNameList: []string{channelName},
 	}
-	log.Println("channelName", channelName)
-	streamList, err := filter.GetList(c)
+
+	db := model.GetDB()
+	streamList, err := db.M3U().GetList(c, filter)
 	if err != nil {
 		c.WebResponse(msg.CodeError, nil, err)
 		return

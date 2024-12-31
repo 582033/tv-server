@@ -9,16 +9,23 @@ import (
 
 // Config 配置结构体
 type Config struct {
-	MongoDB struct {
-		Host     string `json:"host"`
-		Port     int    `json:"port"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Database string `json:"database"`
-	} `json:"mongodb"`
 	Server struct {
 		Port int `json:"port"`
 	} `json:"server"`
+
+	DB struct {
+		Type   string `json:"type"` // mongodb 或 sqlite
+		SQLite struct {
+			Path string `json:"path"`
+		} `json:"sqlite"`
+		MongoDB struct {
+			Host     string `json:"host"`
+			Port     int    `json:"port"`
+			Username string `json:"username"`
+			Password string `json:"password"`
+			Database string `json:"database"`
+		} `json:"mongodb"`
+	} `json:"db"`
 }
 
 var (

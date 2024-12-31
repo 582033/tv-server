@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>频道详情</title>
+    <title>{{ .title }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="UTF-8">
     <!-- Bootstrap CSS -->
@@ -12,100 +12,74 @@
     <!-- 自定义样式 -->
     <link href="/static/css/style.css" rel="stylesheet">
     <link href="/static/css/channel_detail.css" rel="stylesheet">
+    <!-- 预埋模板变量 -->
+    <script>
+        window.CHANNEL_NAME = "{{ .channelName }}";
+        window.CHANNEL_URL = "{{ .channelUrl }}";
+    </script>
 </head>
 <body class="bg-light">
     {{ template "navbar" . }}
-
-    <div class="container py-5">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h1 class="mb-0">{{ .channelName }}</h1>
-                    <a href="{{ .channelUrl }}" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left"></i> 返回频道列表
-                    </a>
-                </div>
-
-                <div id="streamList">
-                    <!-- 加载动画 -->
-                    <div class="text-center p-5" id="loading">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">加载中...</span>
+    
+    <div class="container-fluid content-wrapper">
+        <div class="row">
+            <!-- 左侧频道信息 -->
+            <div class="col-md-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div id="channelInfo">
+                            <div class="channel-header mb-3">
+                                <h4 class="channel-title mb-0">{{ .channelName }}</h4>
+                                <div class="text-muted small">可用直播源列表</div>
+                            </div>
+                            
+                            <div class="stream-list">
+                                <div id="streamList" class="list-group">
+                                    <!-- 加载动画 -->
+                                    <div class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="text-muted mt-2">正在加载直播源...</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="mt-2">加载中...</div>
-                    </div>
-
-                    <!-- 数据表格将由JS动态插入 -->
-                    <div class="table-responsive d-none" id="streamTable">
-                        <table class="table table-hover">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>名称</th>
-                                    <th>Logo</th>
-                                    <th>链接</th>
-                                    <th>创建时间</th>
-                                    <th>更新时间</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="streamTableBody">
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- 错误提示 -->
-                    <div class="alert alert-danger d-none" id="errorMessage">
-                        加载失败，请稍后重试
-                    </div>
-
-                    <!-- 无数据提示 -->
-                    <div class="alert alert-info d-none" id="emptyMessage">
-                        <i class="bi bi-info-circle me-2"></i>
-                        该频道下暂无媒体流信息
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- 播放器模态框 -->
-    <div class="modal fade" id="playerModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-player">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h6 class="modal-title" id="playerTitle">播放器</h6>
-                    <div class="ms-auto me-3">
-                        <span class="badge bg-info" id="streamStats">
-                            <i class="bi bi-clock"></i> 延迟: <span id="latencyValue">计算中...</span>
-                        </span>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-0">
-                    <video id="player" playsinline>
-                        <source type="application/x-mpegURL">
-                    </video>
-                </div>
-                <div class="modal-footer player-controls">
-                    <div class="d-flex align-items-center w-100">
-                        <button class="btn btn-light me-2" id="playPauseBtn">
-                            <i class="bi bi-play-fill"></i>
-                        </button>
-                        <div class="progress flex-grow-1 me-2">
-                            <div class="progress-bar" role="progressbar" id="progressBar"></div>
+            
+            <!-- 右侧播放器 -->
+            <div class="col-md-8">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body p-0">
+                        <div id="playerContainer" class="player-container">
+                            <video id="player" playsinline controls>
+                                <source type="application/x-mpegURL">
+                            </video>
+                            <div id="latencyInfo" class="latency-info">延迟: -- ms</div>
                         </div>
-                        <span class="time me-2" id="currentTime">00:00</span>
-                        <span class="time-separator">/</span>
-                        <span class="time ms-2" id="duration">00:00</span>
-                        <div class="volume-control ms-3 me-2">
-                            <button class="btn btn-light" id="muteBtn">
-                                <i class="bi bi-volume-up"></i>
-                            </button>
-                            <input type="range" class="volume-slider ms-2" id="volumeSlider" min="0" max="100" value="100">
+                        <div class="player-controls mt-3">
+                            <div class="d-flex align-items-center">
+                                <button class="btn btn-light me-2" id="playPauseBtn">
+                                    <i class="bi bi-play-fill"></i>
+                                </button>
+                                <div class="progress-wrapper flex-grow-1 me-2">
+                                    <div class="progress">
+                                        <div class="progress-bar" role="progressbar" id="progressBar"></div>
+                                    </div>
+                                </div>
+                                <div class="volume-control ms-2">
+                                    <button class="btn btn-light" id="muteBtn">
+                                        <i class="bi bi-volume-up"></i>
+                                    </button>
+                                    <input type="range" class="volume-slider ms-2" id="volumeSlider" min="0" max="100" value="80">
+                                </div>
+                                <button class="btn btn-light ms-2" id="fullscreenBtn">
+                                    <i class="bi bi-fullscreen"></i>
+                                </button>
+                            </div>
                         </div>
-                        <button class="btn btn-light ms-2" id="fullscreenBtn">
-                            <i class="bi bi-fullscreen"></i>
-                        </button>
                     </div>
                 </div>
             </div>
@@ -117,8 +91,8 @@
     <!-- HLS.js -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <!-- Plyr -->
-    <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
-    <!-- 自定义JS -->
+    <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
+    <!-- 自定义脚本 -->
     <script src="/static/js/channel_detail.js"></script>
 </body>
 </html> 

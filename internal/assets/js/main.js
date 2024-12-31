@@ -66,8 +66,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             const urlObj = new URL(url);
-            const isValid = (urlObj.protocol === 'http:' || urlObj.protocol === 'https:') 
-                && (url.toLowerCase().endsWith('.m3u') || url.toLowerCase().endsWith('.m3u8'));
+            // 只要是http或https链接即可
+            const isValid = (urlObj.protocol === 'http:' || urlObj.protocol === 'https:');
             
             inputGroup.classList.toggle('is-invalid', !isValid && url !== '');
             validateBtn.disabled = !isValid;
@@ -87,8 +87,8 @@ document.addEventListener('DOMContentLoaded', function() {
             .filter(url => {
                 try {
                     const urlObj = new URL(url);
-                    return (urlObj.protocol === 'http:' || urlObj.protocol === 'https:') 
-                        && (url.toLowerCase().endsWith('.m3u') || url.toLowerCase().endsWith('.m3u8'));
+                    // 只要是http或https链接即可
+                    return (urlObj.protocol === 'http:' || urlObj.protocol === 'https:');
                 } catch {
                     return false;
                 }
@@ -260,7 +260,7 @@ document.addEventListener('DOMContentLoaded', function() {
             progressArea.classList.add('d-none');
         })
         .catch(error => {
-            showResult('error', '验证��求失败，请稍后重试');
+            showResult('error', '验证请求失败，请稍后重试');
             validateBtn.disabled = false;
             validateBtnText.textContent = '验证';  
             validateBtnText.classList.remove('d-none');
@@ -375,7 +375,7 @@ function handleFileUpload(event) {
     const progressBar = uploadProgress.querySelector('.progress-bar');
     const validateBtn = document.getElementById('validateBtn');
     
-    // 更新按钮文本，不显示文件图���
+    // 更新按钮文本，不显示文件图标
     uploadText.innerHTML = `正在处理: ${file.name}`;
     uploadProgress.classList.remove('d-none');
     uploadLabel.classList.add('disabled');

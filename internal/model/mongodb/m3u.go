@@ -78,6 +78,28 @@ func (filter *QueryFilter) GetList(ctx *core.Context) ([]*MediaStream, error) {
 	return msList, nil
 }
 
+// UpdateDoc 表示更新文档的结构
+type UpdateDoc struct {
+	StreamUrl  []string
+	UpdatedAt  int64
+	StreamLogo string
+}
+
+// ToBsonM 将 UpdateDoc 转换为 bson.M 格式
+func (u *UpdateDoc) ToBsonM() bson.M {
+	return bson.M{
+		"$addToSet": bson.M{
+			"streamUrl": bson.M{
+				"$each": u.StreamUrl,
+			},
+		},
+		"$set": bson.M{
+			"updatedAt":  u.UpdatedAt,
+			"streamLogo": u.StreamLogo,
+		},
+	}
+}
+
 func BatchSave(ctx *core.Context, msList []*MediaStream) error {
 	if len(msList) == 0 {
 		return nil
@@ -99,34 +121,24 @@ func BatchSave(ctx *core.Context, msList []*MediaStream) error {
 		// 构建 BulkWrite 操作的切片
 		var operations []mongo.WriteModel
 		for _, ms := range batch {
-			// 每个元素更新 CreatedAt 和 UpdatedAt
 			ms.CreatedAt = now
 			ms.UpdatedAt = now
 
-			// 使用 $addToSet 来保证 StreamUrl 中的 URL 不重复
 			filter := bson.M{
 				"streamName":  ms.StreamName,
 				"channelName": ms.ChannelName,
 			}
 
-			// 批量更新或插入，如果存在则更新，如果不存在则插入
-			update := bson.M{
-				"$addToSet": bson.M{
-					"streamUrl": bson.M{
-						"$each": ms.StreamUrl, // 批量添加 URL
-					},
-				},
-				"$set": bson.M{
-					"updatedAt": ms.UpdatedAt,
-					"logo":      ms.StreamLogo,
-				},
+			updateDoc := &UpdateDoc{
+				StreamUrl:  ms.StreamUrl,
+				UpdatedAt:  ms.UpdatedAt,
+				StreamLogo: ms.StreamLogo,
 			}
 
-			// 构造批量操作模型，设置 upsert 为 true，���示数据不存在时插入新记录
 			operations = append(operations, mongo.NewUpdateOneModel().
 				SetFilter(filter).
-				SetUpdate(update).
-				SetUpsert(true)) // 若文档不存在，则插入新文档
+				SetUpdate(updateDoc.ToBsonM()).
+				SetUpsert(true))
 		}
 
 		// 执行 BulkWrite 操作

@@ -40,18 +40,20 @@ func startWorkers(allEntries []Entry, workerCount int, maxLatency time.Duration,
 			for entry := range tasks {
 				valid, err := ValidateURL(entry.URL, maxLatency)
 				if valid && err == nil {
+					// 使用select避免向已关闭的channel发送数据
 					select {
 					case results <- entry:
 						// 成功发送结果
 					default:
-						// 如果通道已满，跳过
+						// 如果通道已满或关闭，跳过
 					}
 				}
+				// 使用select避免向已关闭的channel发送数据
 				select {
 				case process <- 1:
 					// 成功发送进度
 				default:
-					// 如果通道已满，跳过
+					// 如果通道已满或关闭，跳过
 				}
 			}
 		}()
@@ -116,11 +118,13 @@ func collectResults(allEntries []Entry, maxLatency time.Duration, workerCount in
 	// 发送任务
 	go sendTasks(allEntries, tasks)
 
-	// 等待所有工作协程完成
+	// 使用一个单独的goroutine来等待所有worker完成并按顺序关闭channels
 	go func() {
+		// 等待所有工作协程完成
 		wg.Wait()
-		close(results) // 所有工作协程完成后关闭 results 通道
-		close(process) // 所有工作协程完成后关闭 process 通道
+		// 按顺序关闭channels
+		close(process) // 先关闭process channel
+		close(results) // 再关闭results channel
 	}()
 
 	// 获取结果

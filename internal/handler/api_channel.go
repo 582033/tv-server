@@ -171,6 +171,7 @@ func HandleChannelDetail(c *core.Context) {
 	channelName := c.Query("channelName")
 	// 添加 URL 解码
 	decodedName, err := url.QueryUnescape(channelName)
+	log.Println("decodedName", decodedName)
 	if err != nil {
 		c.WebResponse(msg.CodeBadRequest, nil, fmt.Errorf("invalid channel name encoding: %v", err))
 		return

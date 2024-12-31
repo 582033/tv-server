@@ -397,4 +397,98 @@
 /* 调整整体内容区域的内边距 */
 .content-wrapper {
     padding: 1rem 0;
+}
+
+/* 移动端响应式布局 */
+@media (max-width: 768px) {
+    .content-wrapper .row {
+        flex-direction: column-reverse;
+    }
+
+    .player-container {
+        height: 40vh; /* 移动端播放器高度 */
+        margin-bottom: 1rem;
+    }
+
+    .stream-list {
+        max-height: 45vh; /* 移动端列表高度 */
+    }
+
+    /* 移动端卡片边距调整 */
+    .card {
+        margin-bottom: 1rem;
+    }
+
+    .col-md-4, .col-md-8 {
+        padding: 0 0.5rem;
+    }
+
+    /* 移动端控制栏样式优化 */
+    .player-controls {
+        padding: 0.25rem;
+    }
+
+    .volume-control {
+        display: none; /* 在移动端隐藏音量控制 */
+    }
+}
+
+/* 保持原有的PC端样式 */ 
+
+/* Loading 动画样式 */
+.player-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+
+.player-loading.active {
+    display: flex;
+}
+
+.player-loading .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+} 
+
+.stream-stats {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.stream-stats div {
+    display: flex;
+    justify-content: space-between;
+    min-width: 150px;
+}
+
+.stream-stats span {
+    margin-left: 0.5rem;
+    font-family: monospace;
 } 

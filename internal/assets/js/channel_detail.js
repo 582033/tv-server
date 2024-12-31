@@ -205,6 +205,10 @@ class ChannelDetail {
         }
         this.currentStreamUrl = url;
 
+        // 显示 loading 动画
+        const loading = document.getElementById('playerLoading');
+        loading.classList.add('active');
+
         if (Hls.isSupported()) {
             // 如果存在旧的 HLS 实例，先销毁它
             if (this.hls) {
@@ -214,7 +218,71 @@ class ChannelDetail {
             // 创建新的 HLS 实例
             this.hls = new Hls({
                 enableWorker: true,
-                lowLatencyMode: true
+                lowLatencyMode: true,
+                debug: false
+            });
+
+            const latencyInfo = document.getElementById('latencyInfo');
+            const bitrateInfo = document.getElementById('bitrateInfo');
+
+            // 监听清单加载事件
+            this.hls.on(Hls.Events.MANIFEST_LOADING, () => {
+                latencyInfo.textContent = '计算中...';
+                bitrateInfo.textContent = '计算中...';
+            });
+
+            // 监听片段加载事件
+            this.hls.on(Hls.Events.FRAG_LOADING, (event, data) => {
+                const startTime = data.frag.start;
+                const currentTime = this.player.currentTime;
+                const estimatedLatency = Math.abs(currentTime - startTime);
+                if (!isNaN(estimatedLatency)) {
+                    latencyInfo.textContent = `${Math.round(estimatedLatency * 1000)}ms`;
+                }
+            });
+
+            // 监听片段加载进度
+            this.hls.on(Hls.Events.FRAG_LOAD_PROGRESS, (event, data) => {
+                if (data.stats) {
+                    const stats = data.stats;
+                    const loadedBytes = stats.loaded;
+                    const timeElapsed = (Date.now() - stats.loading.start) / 1000; // 转换为秒
+                    if (timeElapsed > 0) {
+                        const bitsPerSecond = (loadedBytes * 8) / timeElapsed;
+                        const mbps = bitsPerSecond / (1024 * 1024);
+                        bitrateInfo.textContent = `${mbps.toFixed(2)} Mbps`;
+                    }
+                }
+            });
+
+            // 监听片段变化事件
+            this.hls.on(Hls.Events.FRAG_CHANGED, (event, data) => {
+                // 更新延迟信息
+                const currentLatency = this.hls.latency;
+                if (typeof currentLatency === 'number') {
+                    latencyInfo.textContent = `${Math.round(currentLatency * 1000)}ms`;
+                }
+
+                // 更新速率信息
+                if (data.frag.stats) {
+                    const stats = data.frag.stats;
+                    if (stats.loaded && stats.loading) {
+                        const duration = (stats.loading.end - stats.loading.start) * 1000; // 转换为毫秒
+                        const bits = stats.loaded * 8;
+                        const bitrate = bits / duration; // Mbps
+                        bitrateInfo.textContent = `${bitrate.toFixed(2)} Mbps`;
+                    }
+                }
+            });
+
+            // 监听错误事件
+            this.hls.on(Hls.Events.ERROR, (event, data) => {
+                if (data.fatal) {
+                    loading.classList.remove('active');
+                    console.error('HLS 错误:', data);
+                    latencyInfo.textContent = '加载失败';
+                    bitrateInfo.textContent = '加载失败';
+                }
             });
 
             // 设置事件监听
@@ -224,13 +292,16 @@ class ChannelDetail {
                     this.player.muted = true;
                     this.player.play();
                 });
+                // 隐藏 loading 动画
+                loading.classList.remove('active');
             });
 
-            // 监听延迟
-            this.hls.on(Hls.Events.FRAG_CHANGED, (event, data) => {
-                if (data.frag.programDateTime) {
-                    const latency = Date.now() - data.frag.programDateTime;
-                    document.getElementById('latencyInfo').textContent = `延迟: ${latency}ms`;
+            // 额外监听延迟更新事件
+            this.hls.on(Hls.Events.LEVEL_UPDATED, () => {
+                const latencyInfo = document.getElementById('latencyInfo');
+                const currentLatency = this.hls.latency;
+                if (typeof currentLatency === 'number') {
+                    latencyInfo.textContent = `${Math.round(currentLatency * 1000)}ms`;
                 }
             });
 
@@ -251,6 +322,8 @@ class ChannelDetail {
                 this.player.muted = true;
                 this.player.play();
             });
+            // 隐藏 loading 动画
+            loading.classList.remove('active');
         }
     }
 

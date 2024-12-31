@@ -1,11 +1,153 @@
 class ChannelDetailManager {
     constructor() {
         this.channelName = window.location.pathname.split('/').pop();
+        this.player = null;
+        this.hls = null;
+        this.playerModal = null;
         this.init();
     }
 
     init() {
+        this.initPlayer();
         this.loadStreamData();
+    }
+
+    initPlayer() {
+        // 初始化播放器
+        const video = document.getElementById('player');
+        this.player = new Plyr(video, {
+            controls: [], // 禁用 Plyr 默认控件
+            clickToPlay: false, // 禁用点击播放
+            keyboard: { focused: true, global: true },
+            autoplay: true,
+            muted: true,  // 初始静音以确保自动播放
+            hideControls: true, // 始终隐藏默认控件
+            disableContextMenu: true // 禁用右键菜单
+        });
+
+        // 初始化模态框
+        this.playerModal = new bootstrap.Modal(document.getElementById('playerModal'));
+        
+        // 初始化自定义控件
+        this.initCustomControls();
+
+        // 监听模态框关闭事件
+        document.getElementById('playerModal').addEventListener('hidden.bs.modal', () => {
+            if (this.hls) {
+                this.hls.destroy();
+                this.hls = null;
+            }
+            if (this.latencyInterval) {
+                clearInterval(this.latencyInterval);
+                this.latencyInterval = null;
+            }
+            this.player.stop();
+        });
+
+        // 监听播放器就绪事件
+        this.player.on('ready', () => {
+            this.player.volume = 0.5;
+            document.getElementById('volumeSlider').value = this.player.volume * 100;
+        });
+    }
+
+    initCustomControls() {
+        // 播放/暂停按钮
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        playPauseBtn.addEventListener('click', () => {
+            if (this.player.playing) {
+                this.player.pause();
+                playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
+            } else {
+                this.player.play();
+                playPauseBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
+            }
+        });
+
+        // 进度条
+        const progressBar = document.getElementById('progressBar');
+        const progress = progressBar.parentElement;
+        
+        progress.addEventListener('click', (e) => {
+            const rect = progress.getBoundingClientRect();
+            const pos = (e.clientX - rect.left) / rect.width;
+            this.player.currentTime = pos * this.player.duration;
+        });
+
+        // 时间更新
+        this.player.on('timeupdate', () => {
+            const currentTime = document.getElementById('currentTime');
+            const duration = document.getElementById('duration');
+            
+            currentTime.textContent = this.formatPlayerTime(this.player.currentTime);
+            duration.textContent = this.formatPlayerTime(this.player.duration);
+            
+            const progress = (this.player.currentTime / this.player.duration) * 100;
+            progressBar.style.width = `${progress}%`;
+        });
+
+        // 音量控制
+        const volumeSlider = document.getElementById('volumeSlider');
+        const muteBtn = document.getElementById('muteBtn');
+
+        volumeSlider.addEventListener('input', (e) => {
+            const volume = e.target.value / 100;
+            this.player.volume = volume;
+            this.updateVolumeIcon(volume);
+        });
+
+        muteBtn.addEventListener('click', () => {
+            this.player.muted = !this.player.muted;
+            if (this.player.muted) {
+                muteBtn.innerHTML = '<i class="bi bi-volume-mute"></i>';
+                volumeSlider.value = 0;
+            } else {
+                this.updateVolumeIcon(this.player.volume);
+                volumeSlider.value = this.player.volume * 100;
+            }
+        });
+
+        // 全屏按钮
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        fullscreenBtn.addEventListener('click', () => {
+            this.player.fullscreen.toggle();
+        });
+
+        // 播放状态监听
+        this.player.on('play', () => {
+            playPauseBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
+        });
+
+        this.player.on('pause', () => {
+            playPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
+        });
+
+        // 全屏状态监听
+        this.player.on('enterfullscreen', () => {
+            fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen-exit"></i>';
+        });
+
+        this.player.on('exitfullscreen', () => {
+            fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen"></i>';
+        });
+    }
+
+    updateVolumeIcon(volume) {
+        const muteBtn = document.getElementById('muteBtn');
+        if (volume === 0) {
+            muteBtn.innerHTML = '<i class="bi bi-volume-mute"></i>';
+        } else if (volume < 0.5) {
+            muteBtn.innerHTML = '<i class="bi bi-volume-down"></i>';
+        } else {
+            muteBtn.innerHTML = '<i class="bi bi-volume-up"></i>';
+        }
+    }
+
+    formatPlayerTime(seconds) {
+        if (isNaN(seconds)) return '00:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
     loadStreamData() {
@@ -68,9 +210,9 @@ class ChannelDetailManager {
                             <button class="btn btn-sm btn-outline-primary ms-2" onclick="channelDetail.copyToClipboard('${url}')">
                                 <i class="bi bi-clipboard"></i>
                             </button>
-                            <a href="${url}" target="_blank" class="btn btn-sm btn-outline-success ms-1">
+                            <button class="btn btn-sm btn-outline-success ms-1" onclick="channelDetail.playStream('${url}', '${stream.StreamName}')">
                                 <i class="bi bi-play-fill"></i>
-                            </a>
+                            </button>
                         </div>
                     `).join('')}
                 </div>
@@ -90,6 +232,135 @@ class ChannelDetailManager {
         `;
     }
 
+    playStream(url, title) {
+        // 设置标题
+        document.getElementById('playerTitle').textContent = title;
+
+        // 如果存在旧的HLS实例，销毁它
+        if (this.hls) {
+            this.hls.destroy();
+            this.hls = null;
+        }
+
+        // 显示模态框
+        this.playerModal.show();
+
+        // 创建新的HLS实例
+        if (Hls.isSupported()) {
+            this.hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true,
+                debug: false,
+                // 添加延迟优化配置
+                liveSyncDurationCount: 3,    // 直播同步时间片数量
+                liveMaxLatencyDurationCount: 5, // 最大延迟时间片数量
+                liveDurationInfinity: true,   // 无限时长模式
+                highBufferWatchdogPeriod: 1,  // 缓冲区监控周期
+                autoStartLoad: true,          // 自动开始加载
+                startLevel: -1,               // 自动选择初始质量
+                defaultAudioCodec: undefined  // 自动选择音频编码
+            });
+
+            this.hls.loadSource(url);
+            this.hls.attachMedia(this.player.media);
+
+            // 监听事件以更新延迟信息
+            this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                this.player.play().catch(() => {
+                    console.log('自动播放被阻止，尝试静音播放');
+                    this.player.muted = true;
+                    this.player.play();
+                });
+            });
+
+            // 监听延迟更新
+            this.hls.on(Hls.Events.FRAG_CHANGED, (event, data) => {
+                this.updateLatency();
+            });
+
+            // 定期更新延迟信息
+            this.latencyInterval = setInterval(() => this.updateLatency(), 1000);
+        } else if (this.player.media.canPlayType('application/vnd.apple.mpegurl')) {
+            // 对于Safari等原生支持HLS的浏览器
+            this.player.source = {
+                type: 'video',
+                sources: [{
+                    src: url,
+                    type: 'application/x-mpegURL'
+                }]
+            };
+            this.player.play().catch(() => {
+                console.log('自动播放被阻止，尝试静音播放');
+                this.player.muted = true;
+                this.player.play();
+            });
+        }
+    }
+
+    updateLatency() {
+        if (!this.hls || !this.hls.media) return;
+
+        const latency = this.calculateLatency();
+        const latencyElement = document.getElementById('latencyValue');
+        
+        if (latencyElement && !isNaN(latency)) {
+            // 根据延迟值设置不同的颜色
+            const badge = document.getElementById('streamStats');
+            if (badge) {
+                if (latency < 5) {
+                    badge.className = 'badge bg-success';
+                } else if (latency < 10) {
+                    badge.className = 'badge bg-warning';
+                } else {
+                    badge.className = 'badge bg-danger';
+                }
+            }
+            
+            latencyElement.textContent = `${latency.toFixed(2)}秒`;
+        }
+    }
+
+    calculateLatency() {
+        if (!this.hls || !this.hls.media) return 0;
+
+        const liveEdge = this.hls.liveSyncPosition;
+        const currentTime = this.hls.media.currentTime;
+        
+        if (liveEdge === null || currentTime === 0) return 0;
+        
+        return liveEdge - currentTime;
+    }
+
+    copyToClipboard(text) {
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                // 使用 Bootstrap 的 Toast 提示
+                const toast = document.createElement('div');
+                toast.className = 'position-fixed bottom-0 end-0 p-3';
+                toast.style.zIndex = '5000';
+                toast.innerHTML = `
+                    <div class="toast align-items-center text-white bg-success border-0" role="alert">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                <i class="bi bi-check-circle me-2"></i>链接已复制到剪贴板
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(toast);
+                const bsToast = new bootstrap.Toast(toast.querySelector('.toast'));
+                bsToast.show();
+                toast.addEventListener('hidden.bs.toast', () => {
+                    document.body.removeChild(toast);
+                });
+            })
+            .catch(err => {
+                console.error('复制失败:', err);
+                alert('复制失败: ' + err.message);
+            });
+    }
+
     formatTime(timestamp) {
         const date = new Date(timestamp * 1000);
         return date.toLocaleString('zh-CN', {
@@ -100,16 +371,6 @@ class ChannelDetailManager {
             minute: '2-digit',
             second: '2-digit'
         });
-    }
-
-    copyToClipboard(text) {
-        navigator.clipboard.writeText(text)
-            .then(() => {
-                alert('链接已复制到剪贴板');
-            })
-            .catch(err => {
-                console.error('复制失败:', err);
-            });
     }
 
     validateStream(id) {

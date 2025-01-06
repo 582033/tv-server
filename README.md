@@ -1,16 +1,17 @@
 # IPTV 服务器
 
-一个简单的 IPTV M3U 验证和代理服务器，用于验证和优化 IPTV 播放列表。
+一个简单的 IPTV 管理平台，支持流媒体验证、智能分类、个性化收藏，让您的 IPTV 资源管理更轻松。
 
-![示例界面](https://raw.githubusercontent.com/582033/tv-server/refs/heads/main/docs/example.jpg)
+| - | - | - |
+|:---:|:---:|:---:|
+| ![首页](https://raw.githubusercontent.com/582033/tv-server/refs/heads/main/docs/homepage.jpg) | ![频道页](https://raw.githubusercontent.com/582033/tv-server/refs/heads/main/docs/channel.jpg)| ![详情页](https://raw.githubusercontent.com/582033/tv-server/refs/heads/main/docs/detail.jpg)|
 
 
 ## 功能特点
-- 使用本地网络验证,保证视频源的稳定性(所以不要放在公网服务器上)
-- 支持多个 M3U 播放列表合并
-- 验证 M3U 播放列表中的链接有效性
-- 指定延迟速率过滤
-- 支持 IPv4 和 IPv6 地址
+* 🚀 M3U 流媒体本地验证与代理
+* 📱 响应式界面设计
+* ⭐ 个性化收藏管理
+* 💾 支持 MongoDB/SQLite
 
 
 ## 运行
@@ -40,10 +41,10 @@ docker-compose up -d
 ** 注意：此方法运行时，配置文件中的mongodb配置无需修改 **
 
 ## todo
-* 增加ffprobe验证
-* 查看数据库中的详细视频信息
-* 视频分类重命名
-* 仿照 `https://pleyr.net/en/play` 播放界面，左边为频道列表，右边为视频列表
-* 在返回m3u8链接列表时，同时返回延迟率信息
-* 可收藏频道列表生成自己的m3u视频源
-** 接入AI，自动优化频道名称及查找源 **
+* [x] 查看数据库中的详细视频信息
+* [x] 仿照 `https://pleyr.net/en/play` 播放界面，左边为频道列表，右边为视频列表
+* [x] 在返回m3u8链接列表时，同时返回延迟率信息
+* [ ] 管理导入的视频分类
+* [ ] 可收藏频道列表,以及使用列表生成自己的m3u视频源
+* [ ] 收藏管理
+* [ ] **接入AI，自动优化频道名称及查找源 **

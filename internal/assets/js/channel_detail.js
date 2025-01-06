@@ -105,8 +105,8 @@ class ChannelDetail {
         // 监听全屏变化事件
         this.player.on('fullscreenchange', () => {
             const isFullscreen = this.player.isFullscreen();
-            const playerContainer = document.getElementById('playerContainer');
-            
+        const playerContainer = document.getElementById('playerContainer');
+
             if (isFullscreen) {
                 playerContainer.classList.add('fullscreen');
             } else {

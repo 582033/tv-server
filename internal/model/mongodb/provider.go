@@ -5,31 +5,34 @@ import (
 	"fmt"
 	"log"
 	"sync"
-	"tv-server/internal/model/types"
-	"tv-server/utils/core"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"tv-server/internal/model/types"
+	"tv-server/utils/core"
 )
 
-type mongoProvider struct {
-	client *mongo.Client
-	m3u    types.M3URepository
+type Provider struct {
+	client   *mongo.Client
+	m3u      types.M3URepository
+	favorite types.FavoriteRepository
 }
 
 var (
-	instance *mongoProvider
+	instance *Provider
 	once     sync.Once
 )
 
 // NewProvider 创建 MongoDB 提供者实例
-func NewProvider() (types.DBProvider, error) {
+func NewProvider() (*Provider, error) {
 	var err error
 	once.Do(func() {
-		instance = &mongoProvider{}
+		instance = &Provider{}
 		err = instance.connect()
 		if err == nil {
 			instance.m3u = newM3URepository(instance.client)
+			instance.favorite = newFavoriteRepository(instance.client)
 		}
 	})
 	if err != nil {
@@ -38,7 +41,7 @@ func NewProvider() (types.DBProvider, error) {
 	return instance, nil
 }
 
-func (p *mongoProvider) connect() error {
+func (p *Provider) connect() error {
 	cfg := core.GetConfig()
 	uri := fmt.Sprintf("mongodb://%s:%s@%s:%d",
 		cfg.DB.MongoDB.Username,
@@ -63,11 +66,15 @@ func (p *mongoProvider) connect() error {
 	return nil
 }
 
-func (p *mongoProvider) M3U() types.M3URepository {
+func (p *Provider) M3U() types.M3URepository {
 	return p.m3u
 }
 
-func (p *mongoProvider) Close() error {
+func (p *Provider) Favorite() types.FavoriteRepository {
+	return p.favorite
+}
+
+func (p *Provider) Close() error {
 	if p.client != nil {
 		return p.client.Disconnect(context.Background())
 	}

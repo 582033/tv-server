@@ -12,8 +12,9 @@ import (
 )
 
 type sqliteProvider struct {
-	db  *sql.DB
-	m3u types.M3URepository
+	db       *sql.DB
+	m3u      types.M3URepository
+	favorite types.FavoriteRepository
 }
 
 var (
@@ -29,6 +30,7 @@ func NewProvider() (types.DBProvider, error) {
 		err = instance.connect()
 		if err == nil {
 			instance.m3u = newM3URepository(instance.db)
+			instance.favorite = newFavoriteRepository(instance.db)
 		}
 	})
 	if err != nil {
@@ -87,6 +89,10 @@ func (p *sqliteProvider) createTables(db *sql.DB) error {
 
 func (p *sqliteProvider) M3U() types.M3URepository {
 	return p.m3u
+}
+
+func (p *sqliteProvider) Favorite() types.FavoriteRepository {
+	return p.favorite
 }
 
 func (p *sqliteProvider) Close() error {
